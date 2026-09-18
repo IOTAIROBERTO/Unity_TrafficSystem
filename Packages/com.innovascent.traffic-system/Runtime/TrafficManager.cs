@@ -101,11 +101,23 @@ namespace InnovAscent.TrafficSystem
                     $"Falling back to layer '{LayerMask.LayerToName(VehicleLayerIndex)}'.");
             }
 
-            // An unset LayerMask silently breaks every detection query, so derive it from the layer.
+            // The mask decides what the detection queries can see, and the layer index decides
+            // where spawned vehicles are put. If the mask does not cover that layer the two
+            // disagree and nothing is ever detected, so keep them consistent.
+            int resolvedBit = 1 << VehicleLayerIndex;
+
             if (config.vehicleLayer.value == 0)
             {
-                config.vehicleLayer = 1 << VehicleLayerIndex;
+                config.vehicleLayer = resolvedBit;
                 TrafficLog.Warn($"[TrafficManager] TrafficConfig.vehicleLayer was empty; derived from layer '{LayerMask.LayerToName(VehicleLayerIndex)}'.");
+            }
+            else if ((config.vehicleLayer.value & resolvedBit) == 0)
+            {
+                config.vehicleLayer = config.vehicleLayer.value | resolvedBit;
+                TrafficLog.Error(
+                    $"[TrafficManager] TrafficConfig.vehicleLayer did not include layer " +
+                    $"'{LayerMask.LayerToName(VehicleLayerIndex)}' ({VehicleLayerIndex}), the layer spawned vehicles are put on, " +
+                    $"so no vehicle would ever have been detected. The layer has been added to the mask.");
             }
         }
 

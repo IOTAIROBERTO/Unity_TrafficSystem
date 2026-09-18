@@ -32,3 +32,19 @@ First release as a UPM package. Extracted from `Assets/TRAFFIC_SYSTEM/`.
   vehicles never braked. It is now derived from the configured layer at startup.
 - `TrafficManager.SpawnVehicle` could write past the end of `activeVehicles` when
   `maxTrafficDensity` changed after `Awake`.
+- A non-empty `vehicleLayer` mask that did not cover the layer spawned vehicles are put on
+  was left alone, so the two silently disagreed and nothing was ever detected. The resolved
+  layer is now added to the mask and the mismatch is reported.
+
+### Demo sample
+- Removed `EnvironmentEscenas`, 775 objects of scenery from another project with no surviving
+  mesh or material: it rendered nothing and produced 477 broken references on scene open.
+- Removed 17 components whose script no longer exists, 2 of them on `TrafficCars_PickUp`,
+  which logged a warning for every pooled instance.
+- Assigned a material to 891 renderers that had none.
+- `TrafficConfig.vehicleLayer` now ships empty so it is derived from `vehicleLayerName` in
+  whatever project the sample is imported into, instead of a hardcoded mask pointing at a
+  layer index that does not exist.
+
+Verified in Unity 6000.0.68f1: scene opens with 0 broken references, play mode runs with
+0 errors and 0 warnings, vehicles spawn on all four lanes, drive, and stop at red lights.

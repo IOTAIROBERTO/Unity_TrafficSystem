@@ -61,3 +61,7 @@ desktop.ini
 
 # Vehicle Models sample: distributed separately, keeps the repo free of large binaries
 /Packages/com.innovascent.traffic-system/Samples~/Vehicles/
+
+# Package Manager writes imported samples here; they duplicate Samples~ in the package
+/Assets/Samples/
+/Assets/Samples.meta
