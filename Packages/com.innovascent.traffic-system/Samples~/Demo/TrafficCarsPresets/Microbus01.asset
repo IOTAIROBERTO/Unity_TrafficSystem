@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
+  m_Name: Microbus01
+  m_EditorClassIdentifier: 
+  prefab: {fileID: 4583524157266693142, guid: 4bd52ec5e20341f4f84605288fad93ae, type: 3}
+  nombreVehiculo: Microbus01
+  radioDeteccion: 2
+  multiplicadorDistancia: 1
+  multiplicadorVelocidad: 0.2
+  aceleracion: 1
+  frenado: 20
+  motorIdleSounds:
+  - {fileID: 8300000, guid: 9bf07e574d1ffb64ca2fcbd2f438f026, type: 3}
+  motorAcceleratingSounds:
+  - {fileID: 8300000, guid: ca4c4cede8dc70d419234eec6e20f8b0, type: 3}
+  motorHighSpeedSounds:
+  - {fileID: 8300000, guid: 16adfee4e7b01e242ae1429ae3a69211, type: 3}
+  brakingSounds:
+  - {fileID: 8300000, guid: cb51f32b5e5eb7245b8e54adc2570353, type: 3}
+  hornSounds:
+  - {fileID: 8300000, guid: d0e89919934b6294f85401d0d31e1434, type: 3}
+  engineStartSounds:
+  - {fileID: 8300000, guid: 3865f2a463cc0ac47a884acb45108885, type: 3}
+  tireSquealSounds:
+  - {fileID: 8300000, guid: a107b89beb58d7c46b2b2b255b65ad59, type: 3}
+  tireRollingSounds:
+  - {fileID: 8300000, guid: 862c54b96d1038a4ab87471a93f008e6, type: 3}
+  volumenMotor: 0.5
+  volumenNeumaticos: 0.4
+  pitchMotorBase: 1
+  probabilidadClaxon: 0.2
+  probabilidadDerrapeCurva: 0.1
+  pesoSpawn: 6
+  MAX_STEER_ANGLE: 35
+  STEER_SPEED: 3
+  SUSPENSION_BOUNCE: 0.05
+  SUSPENSION_SPEED: 0.6
+  WHEEL_RADIUS: 0.3

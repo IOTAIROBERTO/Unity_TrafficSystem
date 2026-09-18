@@ -1,0 +1,14 @@
+{
+    "name": "InnovAscent.TrafficSystem",
+    "rootNamespace": "InnovAscent.TrafficSystem",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
