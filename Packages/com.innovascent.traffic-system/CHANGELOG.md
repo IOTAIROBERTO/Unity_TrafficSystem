@@ -2,9 +2,33 @@
 
 ## [Unreleased]
 
+### Fixed — traffic behaviour
+- Oncoming traffic braked vehicles inside junctions. `DetectVehicleAhead` only ignored vehicles
+  facing the opposite way when *outside* an intersection, and inside one it treated any vehicle
+  within twice the safe distance as the one ahead. Two vehicles meeting at a crossing therefore
+  stopped each other and neither could leave. Oncoming traffic is on the other carriageway and
+  is now ignored everywhere; crossing traffic only stops the side that has to give way.
+- A vehicle that turned kept the destroy points of the lane it spawned in, which sit on a road
+  it will never reach, so it drove past the end of its route until the overrun timer fired. It
+  now retires at the end of the route it is actually driving.
+
+### Added — jam resolution
+- `Vehicle` detects being stopped while no red light is holding it. After
+  `TrafficConfig.stuckCreepDelay` it stops yielding and crawls, which breaks a mutual block;
+  after `stuckDespawnDelay` it returns to the pool. Panic distance still applies, so it creeps
+  rather than driving through anything.
+- A vehicle that runs out of waypoints without reaching a destroy point is retired after
+  `routeOverrunTimeout` instead of driving straight forever holding a slot.
+- The stuck timer decays at twice the rate it accumulates, so a vehicle that has started
+  creeping keeps creeping instead of flipping between stopped and moving.
+- Traffic lights are evaluated on every behaviour tick, not only when the vehicle is otherwise
+  free to move, so a queue waiting at a red light is never mistaken for a jam.
+
 ### Added
 - `TrafficSystem-SampleScene`: a block city with ground, a ring road, two avenues, four blocks
-  of buildings, six lanes and four cube traffic lights, running real car models.
+  of buildings, six lanes and four cube traffic lights, running real car models. Traffic can
+  turn at the crossroads: each approach carries a `WaypointDecision` offering straight, right
+  and left onto the avenue heading that way.
 - The six vehicle models are now distributed with the Demo sample instead of being kept out of
   version control.
 

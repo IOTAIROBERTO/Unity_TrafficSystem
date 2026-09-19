@@ -44,6 +44,10 @@ into `Assets/TrafficSystem-SampleScene/`:
 - four city blocks of building cubes between them
 - six lanes: four signalled arms through the crossroads, plus an inner and an outer ring lane
   so traffic circulates all the way around the blocks
+- right-hand traffic: every lane sits to the driver's right of its road centreline, and each
+  traffic light stands on the kerb to the right of the approach it governs
+- turns at the crossroads: each approach carries a `WaypointDecision` offering straight (50%),
+  right (25%) and left (25%) onto the avenue heading that way
 - four traffic lights, each a dark housing carrying three coloured cubes, driven by a
   `FourWayIntersectionController`
 - `LaneDirection` metadata marking the crossings, with the avenues yielding to ring traffic

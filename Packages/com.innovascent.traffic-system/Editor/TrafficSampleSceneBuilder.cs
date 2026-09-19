@@ -96,11 +96,19 @@ namespace InnovAscent.TrafficSystem.EditorTools
             var lights = new List<TrafficLightController>();
             var lanesRoot = new GameObject("Lanes").transform;
 
-            // Crossroads: four signalled arms meeting at the origin.
-            lanes.Add(BuildStraightLane("north_to_south", new Vector3(LaneOffset, 0f, RingHalf + ApproachLength), Vector3.back, lanesRoot, lights));
-            lanes.Add(BuildStraightLane("south_to_north", new Vector3(-LaneOffset, 0f, -RingHalf - ApproachLength), Vector3.forward, lanesRoot, lights));
-            lanes.Add(BuildStraightLane("east_to_west", new Vector3(RingHalf + ApproachLength, 0f, -LaneOffset), Vector3.left, lanesRoot, lights));
-            lanes.Add(BuildStraightLane("west_to_east", new Vector3(-RingHalf - ApproachLength, 0f, LaneOffset), Vector3.right, lanesRoot, lights));
+            // Crossroads: four signalled arms meeting at the origin. Right-hand traffic, so each
+            // lane sits on Cross(up, direction) — the driver's right — of its avenue centreline.
+            var avenues = new List<LaneConfig>();
+            var avenueDirections = new List<Vector3> { Vector3.back, Vector3.forward, Vector3.left, Vector3.right };
+            var avenueIds = new[] { "north_to_south", "south_to_north", "east_to_west", "west_to_east" };
+
+            for (int i = 0; i < avenueIds.Length; i++)
+            {
+                avenues.Add(BuildStraightLane(avenueIds[i], RingHalf + ApproachLength, avenueDirections[i], lanesRoot, lights));
+            }
+
+            WireCrossroadTurns(avenues, avenueDirections);
+            lanes.AddRange(avenues);
 
             // Ring road: traffic that drives all the way around the four blocks.
             lanes.Add(BuildRingLane("ring_outer_cw", RingHalf + LaneOffset, true, lanesRoot));
@@ -268,11 +276,15 @@ namespace InnovAscent.TrafficSystem.EditorTools
         /// <summary>
         /// One arm of the crossroads: a straight run through the ring road and the signalled centre.
         /// </summary>
-        static LaneConfig BuildStraightLane(string laneId, Vector3 start, Vector3 direction,
+        static LaneConfig BuildStraightLane(string laneId, float armLength, Vector3 direction,
                                             Transform parent, List<TrafficLightController> lights)
         {
             var root = new GameObject("Lane_" + laneId).transform;
             root.SetParent(parent, false);
+
+            // Keep right: offset the lane from the avenue centreline towards the driver's right.
+            Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
+            Vector3 start = -direction * armLength + right * LaneOffset;
 
             float total = (RingHalf + ApproachLength) * 2f;
             const int Count = 15;
@@ -314,6 +326,78 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 radioSeguridadSpawn = 14f,
                 velocidadMaxima = 34f
             };
+        }
+
+        /// <summary>
+        /// Lets traffic turn at the crossroads instead of every lane running dead straight.
+        /// A vehicle reaching the waypoint before the junction picks straight, right or left, and
+        /// continues on the waypoints of whichever avenue heads that way, adopting its lane id.
+        /// </summary>
+        static void WireCrossroadTurns(List<LaneConfig> avenues, List<Vector3> directions)
+        {
+            for (int i = 0; i < avenues.Count; i++)
+            {
+                LaneConfig lane = avenues[i];
+                Vector3 forward = directions[i];
+                Vector3 rightDir = Vector3.Cross(Vector3.up, forward).normalized;
+
+                int centreIndex = FirstIndexPastCentre(lane.waypoints, forward);
+                if (centreIndex <= 0 || centreIndex >= lane.waypoints.Length - 1) continue;
+
+                var decision = lane.waypoints[centreIndex - 1].gameObject.AddComponent<WaypointDecision>();
+                decision.laneIdsPermitidos = new[] { lane.laneId };
+                decision.distanciaMaximaValidacion = 30f;
+                decision.esInterseccionConSemaforo = true;
+
+                decision.rutaRecto = Tail(lane.waypoints, centreIndex);
+                decision.laneIdRecto = lane.laneId;
+
+                LaneConfig toTheRight = LaneHeading(avenues, directions, rightDir);
+                if (toTheRight != null)
+                {
+                    decision.rutaDerecha = Tail(toTheRight.waypoints, FirstIndexPastCentre(toTheRight.waypoints, rightDir));
+                    decision.laneIdDerecha = toTheRight.laneId;
+                }
+
+                LaneConfig toTheLeft = LaneHeading(avenues, directions, -rightDir);
+                if (toTheLeft != null)
+                {
+                    decision.rutaIzquierda = Tail(toTheLeft.waypoints, FirstIndexPastCentre(toTheLeft.waypoints, -rightDir));
+                    decision.laneIdIzquierda = toTheLeft.laneId;
+                }
+
+                decision.probabilidadRecto = 0.5f;
+                decision.probabilidadDerecha = 0.25f;
+                decision.probabilidadIzquierda = 0.25f;
+            }
+        }
+
+        /// <summary>First waypoint at or past the middle of the crossroads, along travel.</summary>
+        static int FirstIndexPastCentre(Transform[] waypoints, Vector3 forward)
+        {
+            for (int i = 0; i < waypoints.Length; i++)
+            {
+                if (Vector3.Dot(waypoints[i].position, forward) >= 0f) return i;
+            }
+            return -1;
+        }
+
+        static Transform[] Tail(Transform[] waypoints, int from)
+        {
+            if (from < 0 || from >= waypoints.Length) return null;
+
+            var tail = new Transform[waypoints.Length - from];
+            System.Array.Copy(waypoints, from, tail, 0, tail.Length);
+            return tail;
+        }
+
+        static LaneConfig LaneHeading(List<LaneConfig> avenues, List<Vector3> directions, Vector3 heading)
+        {
+            for (int i = 0; i < avenues.Count; i++)
+            {
+                if (Vector3.Dot(directions[i], heading) > 0.9f) return avenues[i];
+            }
+            return null;
         }
 
         /// <summary>
@@ -388,8 +472,9 @@ namespace InnovAscent.TrafficSystem.EditorTools
         static TrafficLightController BuildTrafficLight(string laneId, Transform controlledWaypoint, Vector3 direction)
         {
             var root = new GameObject("TrafficLight_" + laneId).transform;
-            Vector3 side = Vector3.Cross(Vector3.up, direction).normalized;
-            root.position = controlledWaypoint.position + side * -(RoadHalfWidth - 1f);
+            // On the kerb to the driver's right, facing the oncoming lane.
+            Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
+            root.position = controlledWaypoint.position + right * (RoadHalfWidth - LaneOffset + 2f);
             root.rotation = Quaternion.LookRotation(-direction);
 
             Block(root, "Pole", new Vector3(0f, 1.6f, 0f), new Vector3(0.3f, 3.2f, 0.3f), poleMaterial);

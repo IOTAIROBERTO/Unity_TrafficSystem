@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
   m_Name: Preset_Shelby
   m_EditorClassIdentifier: 
-  prefab: {fileID: 1961267249718202948, guid: 0c48f52ce5f6e6f418da9fe02cf8d63c, type: 3}
+  prefab: {fileID: 2249553863446859785, guid: 0c48f52ce5f6e6f418da9fe02cf8d63c, type: 3}
   nombreVehiculo: Shelby
   radioDeteccion: 2.5
   multiplicadorDistancia: 1

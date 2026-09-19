@@ -70,12 +70,24 @@ namespace InnovAscent.TrafficSystem
         private float destroyRadius;
         private float updateTimer;
         private float destroyCheckTimer; // Nuevo: para reducir frecuencia de CheckDestroyPoints
+
+        // ============ RESOLUCIÓN DE ATASCOS ============
+        // A vehicle can end up stopped forever: two vehicles inside an intersection can each see
+        // the other as the one ahead and both wait, and a vehicle that runs out of waypoints
+        // without passing a destroy point drives on and never returns to the pool.
+        private float stuckTimer;
+        private float overrunTimer;
+        private bool heldByTrafficLight;
+        private bool ignoringVehicleAhead;
         private const float UPDATE_INTERVAL = 0.05f;
         private const float DESTROY_CHECK_INTERVAL = 0.5f; // Verificar destrucción cada 0.5s
 
         // ============ DECISION SYSTEM ============
         private WaypointDecision currentDecision;
         private bool isProcessingDecision = false;
+
+        // Reused when a turn replaces the route, so taking a turn allocates nothing.
+        private readonly Transform[] turnDestroyPoint = new Transform[1];
 
         // ============ CONFIGURACIÓN INICIAL ============
         private Vector3 initialChassisPosition;
@@ -148,6 +160,11 @@ namespace InnovAscent.TrafficSystem
             currentDecision = null;
             destroyCheckTimer = 0f;
 
+            stuckTimer = 0f;
+            overrunTimer = 0f;
+            heldByTrafficLight = false;
+            ignoringVehicleAhead = false;
+
             CalculateDistancesBasedOnSize();
             UpdateCurrentLane();
         }
@@ -204,6 +221,8 @@ namespace InnovAscent.TrafficSystem
                 CheckDestroyPoints();
                 destroyCheckTimer = 0f;
             }
+
+            if (ResolveJam(dt)) return;   // the vehicle went back to the pool
 
             ApplySpeed(dt);
             MoveVehicle(dt);
@@ -411,6 +430,12 @@ namespace InnovAscent.TrafficSystem
                 waypoints = nuevaRuta;
                 currentWaypointIndex = 0;
                 lookAheadIndex = Mathf.Min(LOOK_AHEAD_DISTANCE, waypoints.Length - 1);
+
+                // The new route belongs to another lane, so the destroy points handed over at
+                // spawn sit on a road this vehicle will never reach. Retire at the end of the
+                // route it is actually driving.
+                turnDestroyPoint[0] = nuevaRuta[nuevaRuta.Length - 1];
+                destroyPoints = turnDestroyPoint;
             }
             else
             {
@@ -468,47 +493,53 @@ namespace InnovAscent.TrafficSystem
                 return;
             }
 
-            // Validación de dirección y lane
             Vector3 otherForward = detectedVehicle.transform.forward;
             float dotProduct = Vector3.Dot(cachedTransform.forward, otherForward);
-            bool isOpposing = dotProduct < -0.3f;
 
-            if (isOpposing && !isInIntersection)
+            // Oncoming traffic is on the other carriageway and never blocks us, inside a junction
+            // just as much as on a straight. Braking for it used to lock two vehicles meeting at
+            // a crossing into a standoff neither could leave.
+            if (dotProduct < -0.3f)
             {
                 hasVehicleAhead = false;
                 distToVehicleAhead = detectionDistance;
                 return;
             }
 
-            // Si el otro vehículo está en carril diferente, ignorar en rectas
-            if (!isInIntersection && !string.IsNullOrEmpty(assignedLaneId) && !string.IsNullOrEmpty(otherVehicle.assignedLaneId))
+            bool sameLane = !string.IsNullOrEmpty(assignedLaneId)
+                            && assignedLaneId == otherVehicle.assignedLaneId;
+
+            // Same lane: ordinary car following, and the only case that matters on a straight.
+            if (sameLane)
             {
-                if (assignedLaneId != otherVehicle.assignedLaneId)
-                {
-                    hasVehicleAhead = false;
-                    distToVehicleAhead = detectionDistance;
-                    return;
-                }
+                hasVehicleAhead = true;
+                distToVehicleAhead = dist;
+                return;
             }
 
-            // Lógica de prioridad en intersecciones
-            if (isInIntersection && shouldYieldInIntersection)
+            if (!isInIntersection)
             {
-                LaneDirection otherLaneDir = otherVehicle.currentLaneDirection;
-                if (otherLaneDir != null && currentLaneDirection != null)
-                {
-                    bool otherHasHigherPriority = otherLaneDir.priority < currentLaneDirection.priority;
-                    if (otherHasHigherPriority && dist < comfortDistance * 2f)
-                    {
-                        hasVehicleAhead = true;
-                        distToVehicleAhead = dist;
-                        return;
-                    }
-                }
+                hasVehicleAhead = false;
+                distToVehicleAhead = detectionDistance;
+                return;
             }
 
-            hasVehicleAhead = dotProduct > 0.3f || dist < minSafeDistance * 2f;
+            // Inside a junction, traffic crossing our path only stops us when we are the ones
+            // who must give way. Without that the two directions block each other symmetrically.
+            if (!shouldYieldInIntersection)
+            {
+                hasVehicleAhead = false;
+                distToVehicleAhead = detectionDistance;
+                return;
+            }
+
+            LaneDirection otherLaneDir = otherVehicle.currentLaneDirection;
+            bool otherHasPriority = otherLaneDir == null || currentLaneDirection == null
+                                    || otherLaneDir.priority <= currentLaneDirection.priority;
+
+            hasVehicleAhead = otherHasPriority && dist < comfortDistance * 2f;
             if (hasVehicleAhead) distToVehicleAhead = dist;
+            else distToVehicleAhead = detectionDistance;
         }
 
         // ============ COMPORTAMIENTO Y VELOCIDAD ============
@@ -528,7 +559,16 @@ namespace InnovAscent.TrafficSystem
 
             if (hasVehicleAhead)
             {
-                if (distToVehicleAhead < panicDistance)
+                // After waiting too long the vehicle stops yielding and crawls forward instead.
+                // Two vehicles that each treat the other as the one ahead would otherwise hold
+                // each other in place for good; panic distance still applies, so it creeps
+                // rather than driving through anything.
+                if (ignoringVehicleAhead && distToVehicleAhead > panicDistance)
+                {
+                    debeFrenar = true;
+                    targetSpeed = baseTargetSpeed * 0.2f;
+                }
+                else if (distToVehicleAhead < panicDistance)
                 {
                     debeDetenerse = true;
                     targetSpeed = 0f;
@@ -546,12 +586,16 @@ namespace InnovAscent.TrafficSystem
                 }
             }
 
-            if (trafficManager != null && trafficConfig != null)
+            heldByTrafficLight = false;
+            if (trafficManager != null && trafficConfig != null && trafficConfig.useSemaforos)
             {
-                if (trafficConfig.useSemaforos && !debeDetenerse)
-                {
-                    CheckTrafficLights(ref debeFrenar, ref debeDetenerse);
-                }
+                // Evaluated even when already stopped behind another vehicle: a queue waiting at
+                // a red light is stopped legitimately and must not be treated as a jam.
+                bool stopForLight = false;
+                CheckTrafficLights(ref debeFrenar, ref stopForLight);
+
+                heldByTrafficLight = stopForLight;
+                debeDetenerse |= stopForLight;
             }
 
             if (debeDetenerse)
@@ -669,6 +713,69 @@ namespace InnovAscent.TrafficSystem
         }
 
         // ============ UTILIDADES ============
+
+        /// <summary>
+        /// Two ways a vehicle stops contributing to the simulation and never recovers on its own:
+        /// it waits behind something that is itself waiting — two vehicles meeting inside an
+        /// intersection each treat the other as the one ahead — or it runs out of waypoints
+        /// without passing a destroy point and keeps driving straight off the map.
+        ///
+        /// The response escalates: first stop yielding and crawl, then give up and return to the
+        /// pool so the slot is reused instead of being held by a vehicle nobody can see moving.
+        /// Returns true when the vehicle was recycled and the rest of the frame must be skipped.
+        /// </summary>
+        bool ResolveJam(float dt)
+        {
+            if (trafficManager == null || trafficConfig == null) return false;
+
+            bool routeFinished = waypoints == null || waypoints.Length == 0 || currentWaypointIndex >= waypoints.Length;
+            if (routeFinished)
+            {
+                overrunTimer += dt;
+                if (overrunTimer >= trafficConfig.routeOverrunTimeout)
+                {
+                    TrafficLog.Info($"[Vehicle] '{name}' recycled after running {overrunTimer:F1}s past the end of lane '{assignedLaneId}' without reaching a destroy point.");
+                    Recycle();
+                    return true;
+                }
+            }
+            else
+            {
+                overrunTimer = 0f;
+            }
+
+            if (heldByTrafficLight)
+            {
+                stuckTimer = 0f;
+                ignoringVehicleAhead = false;
+                return false;
+            }
+
+            // The timer decays instead of resetting, so a vehicle that has started creeping keeps
+            // creeping for a moment instead of flipping between stopped and moving every frame.
+            if (currentSpeed < trafficConfig.stuckSpeedThreshold) stuckTimer += dt;
+            else stuckTimer = Mathf.Max(0f, stuckTimer - dt * 2f);
+
+            ignoringVehicleAhead = stuckTimer >= trafficConfig.stuckCreepDelay;
+
+            if (stuckTimer >= trafficConfig.stuckDespawnDelay)
+            {
+                TrafficLog.Warn($"[Vehicle] '{name}' recycled after {stuckTimer:F1}s stopped on lane '{assignedLaneId}' with no red light holding it.");
+                Recycle();
+                return true;
+            }
+
+            return false;
+        }
+
+        void Recycle()
+        {
+            stuckTimer = 0f;
+            overrunTimer = 0f;
+            ignoringVehicleAhead = false;
+            currentSpeed = 0f;
+            trafficManager.ReturnVehicle(this, poolIndex);
+        }
 
         void CheckDestroyPoints()
         {
