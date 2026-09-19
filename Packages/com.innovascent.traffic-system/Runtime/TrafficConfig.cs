@@ -37,6 +37,23 @@ namespace InnovAscent.TrafficSystem
         [Tooltip("Nombre de la capa donde viven los vehículos. Debe existir en Tags and Layers.")]
         public string vehicleLayerName = "Vehicles";
 
+        [Header("Resolución de Atascos")]
+        [Tooltip("Segundos parado sin semáforo en rojo antes de ignorar al vehículo de delante e intentar avanzar")]
+        [Range(2f, 20f)]
+        public float stuckCreepDelay = 6f;
+
+        [Tooltip("Segundos parado antes de retirar el vehículo al pool. Debe ser mayor que stuckCreepDelay")]
+        [Range(5f, 60f)]
+        public float stuckDespawnDelay = 14f;
+
+        [Tooltip("Segundos que un vehículo puede seguir rodando tras agotar sus waypoints antes de retirarlo")]
+        [Range(1f, 30f)]
+        public float routeOverrunTimeout = 6f;
+
+        [Tooltip("Velocidad por debajo de la cual se considera que el vehículo está parado (km/h)")]
+        [Range(0.1f, 5f)]
+        public float stuckSpeedThreshold = 0.5f;
+
         [Header("Diagnóstico")]
         [Tooltip("Emite los logs del sistema de tráfico. Apagado en producción.")]
         public bool enableDebugLogs = false;

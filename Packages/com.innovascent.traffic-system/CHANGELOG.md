@@ -1,5 +1,64 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed — traffic behaviour
+- Oncoming traffic braked vehicles inside junctions. `DetectVehicleAhead` only ignored vehicles
+  facing the opposite way when *outside* an intersection, and inside one it treated any vehicle
+  within twice the safe distance as the one ahead. Two vehicles meeting at a crossing therefore
+  stopped each other and neither could leave. Oncoming traffic is on the other carriageway and
+  is now ignored everywhere; crossing traffic only stops the side that has to give way.
+- A vehicle that turned kept the destroy points of the lane it spawned in, which sit on a road
+  it will never reach, so it drove past the end of its route until the overrun timer fired. It
+  now retires at the end of the route it is actually driving.
+
+### Added — jam resolution
+- `Vehicle` detects being stopped while no red light is holding it. After
+  `TrafficConfig.stuckCreepDelay` it stops yielding and crawls, which breaks a mutual block;
+  after `stuckDespawnDelay` it returns to the pool. Panic distance still applies, so it creeps
+  rather than driving through anything.
+- A vehicle that runs out of waypoints without reaching a destroy point is retired after
+  `routeOverrunTimeout` instead of driving straight forever holding a slot.
+- The stuck timer decays at twice the rate it accumulates, so a vehicle that has started
+  creeping keeps creeping instead of flipping between stopped and moving.
+- Traffic lights are evaluated on every behaviour tick, not only when the vehicle is otherwise
+  free to move, so a queue waiting at a red light is never mistaken for a jam.
+
+### Added
+- `TrafficSystem-SampleScene`: a block city with ground, a ring road, two avenues, four blocks
+  of buildings, six lanes and four cube traffic lights, running real car models. Traffic can
+  turn at the crossroads: each approach carries a `WaypointDecision` offering straight, right
+  and left onto the avenue heading that way.
+- The six vehicle models are now distributed with the Demo sample instead of being kept out of
+  version control.
+
+### Changed
+- `Build Sample Scene` now generates the block city, and gained three guards learned from
+  running it:
+  - it strips the cameras, lights and audio listeners that DCC exports carry, which otherwise
+    out-rank the scene camera and hijack the view on every pooled vehicle;
+  - it rejects models whose footprint is too square to be a car, because normalising one
+    produces a box wide enough to block the carriageway;
+  - it skips presets whose prefab has no renderable mesh, so the scene cannot fill up with
+    invisible traffic.
+- `Build` is public and takes an optional model list, so it can be driven from a script. The
+  menu entry keeps the confirmation prompts.
+
+### Fixed
+- The project had no Render Pipeline Asset assigned: `GraphicsSettings.defaultRenderPipeline`
+  was null, so everything rendered through the Built-in pipeline and every URP material came
+  out magenta. `PC_RPAsset` is now assigned in GraphicsSettings and in all six quality levels.
+- Converted 38 vehicle materials from the Built-in `Standard` shader to `Universal Render
+  Pipeline/Lit`, carrying colour, texture, metallic and smoothness across.
+
+### Known issues
+- The six car prefabs in `TrafficCarsPrefabs/` have no meshes: every `MeshFilter.sharedMesh`
+  is null because the meshes lived in the project this system was extracted from. They spawn
+  invisible vehicles and are superseded by `SampleScene/`.
+- Three of the six vehicle models (Camaro, Ferrari Testarossa, Ford Ka) are rejected by the
+  builder for having a near-square footprint, and are unused.
+
+
 ## [1.0.0]
 
 First release as a UPM package. Extracted from `Assets/TRAFFIC_SYSTEM/`.

@@ -37,17 +37,32 @@ Requires Unity 2022.3 or newer. No package dependencies.
 
 ## Sample scene generator
 
-`Tools > InnovAscent > Traffic System > Build Sample Scene` generates a runnable four-way
-intersection into `Assets/TRAFFIC-SAMPLE/TRAFFIC-SAMPLE.unity`: ground and road, four lanes of
-seven waypoints each, `LaneDirection` metadata with the crossing marked as an intersection,
-four traffic lights driven by a `FourWayIntersectionController`, the `TrafficManager` +
-`TrafficConfig` pair, the vehicle layer, and one `VehiclePreset` per vehicle.
+`Tools > InnovAscent > Traffic System > Build Sample Scene` generates a runnable block city
+into `Assets/TrafficSystem-SampleScene/`:
 
-Select model assets in the Project window before running it and each one is wrapped into a
-pivot-corrected prefab: the builder measures the renderer bounds, moves the origin to the
-centre of the footprint on the ground, rotates the long axis onto +Z and normalises the length
-to 4.5 m. Raw models therefore work without fixing their pivot in a DCC tool first. With
-nothing selected it falls back to placeholder box cars, so the scene always runs.
+- ground, a square ring road and two avenues crossing at the centre
+- four city blocks of building cubes between them
+- six lanes: four signalled arms through the crossroads, plus an inner and an outer ring lane
+  so traffic circulates all the way around the blocks
+- right-hand traffic: every lane sits to the driver's right of its road centreline, and each
+  traffic light stands on the kerb to the right of the approach it governs
+- turns at the crossroads: each approach carries a `WaypointDecision` offering straight (50%),
+  right (25%) and left (25%) onto the avenue heading that way
+- four traffic lights, each a dark housing carrying three coloured cubes, driven by a
+  `FourWayIntersectionController`
+- `LaneDirection` metadata marking the crossings, with the avenues yielding to ring traffic
+- the `TrafficManager` + `TrafficConfig` pair and the vehicle layer
+
+Select model assets in the Project window before running it and each is wrapped into a
+usable vehicle prefab: the builder strips the cameras and lights that DCC exports carry,
+measures the renderer bounds, moves the origin to the centre of the footprint on the ground,
+rotates the long axis onto +Z and normalises the length to 4.5 m. Models whose footprint is
+too square to be a car are rejected with a warning, since normalising them would produce a
+box that blocks the carriageway.
+
+With nothing selected it uses the project's existing `VehiclePreset` assets, skipping any
+whose prefab has no renderable mesh, and finally falls back to box cars — so the scene always
+runs and never spawns invisible traffic.
 
 ## Manual setup
 
@@ -69,17 +84,23 @@ nothing selected it falls back to placeholder box cars, so the scene always runs
 Installs from `Window > Package Manager > InnovAscent Traffic System > Samples`. Nothing is
 copied into a project until you import it.
 
-**Demo City Traffic** (17 MB) — wired-up scene, seven vehicle prefabs, six vehicle presets,
-ambient audio bank.
+**Demo City Traffic** (~82 MB) contains:
 
-### Vehicle models
+```
+Demo/
+  SampleScene/           TrafficSystem-SampleScene.unity + its car prefabs and presets
+  Vehicles/              six car models, one folder per vehicle
+  TrafficCarsAudios/     ambient and engine audio bank
+  TrafficCarsPrefabs/    older car prefabs
+  TrafficCarsScenes/     the original TrafficScene
+  TrafficSystem.prefab   a pre-wired manager + config + lanes
+```
 
-Car meshes are **not** distributed with this repository. They are large binaries whose author
-and licence are not documented, so they are kept out of version control.
+`TrafficSystem-SampleScene` is the one to open: a block city with real car models driving the
+ring road and the signalled crossroads.
 
-The package does not need them: bring your own models and let
-`Build Sample Scene` wrap them into pivot-corrected vehicle prefabs, or run it with nothing
-selected to get placeholder box cars.
+Check `Vehicles/CREDITS.txt` before redistributing: these are third-party models whose author
+and licence were never documented, and the vehicles they depict carry manufacturer trademarks.
 
 ## Host project integration notes
 
