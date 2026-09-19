@@ -12,9 +12,9 @@ namespace InnovAscent.TrafficSystem.EditorTools
     /// </summary>
     public class TrafficSystemWindow : EditorWindow
     {
-        enum Tab { Setup, Config }
+        enum Tab { Setup, Config, City }
 
-        static readonly string[] TabLabels = { "Setup", "Config" };
+        static readonly string[] TabLabels = { "Setup", "Config", "City" };
 
         Tab tab = Tab.Setup;
         Vector2 scroll;
@@ -22,6 +22,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
         UnityEditor.Editor configEditor;
         TrafficConfig editedConfig;
         Material modelMaterial;
+        CityLayout cityLayout;
 
         [MenuItem("Tools/InnovAscent/Traffic System")]
         public static void Open()
@@ -61,8 +62,123 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == Tab.Setup) DrawSetupTab();
-            else DrawConfigTab();
+            else if (tab == Tab.Config) DrawConfigTab();
+            else DrawCityTab();
             EditorGUILayout.EndScrollView();
+        }
+
+        // ============================== CITY TAB ==============================
+
+        const string CityOutputFolder = "Assets/TrafficSystem-City";
+
+        static readonly string[] JunctionModeLabels = { "1 arm", "Pairs", "No light" };
+
+        void DrawCityTab()
+        {
+            EditorGUILayout.LabelField("City layout", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "A grid of avenues with a junction wherever two cross. Each junction carries its " +
+                "own rule, so one city can mix signalled and give-way crossings.",
+                MessageType.None);
+
+            cityLayout = (CityLayout)EditorGUILayout.ObjectField("Layout", cityLayout, typeof(CityLayout), false);
+
+            if (cityLayout == null)
+            {
+                if (GUILayout.Button("Create a layout asset", GUILayout.Height(24f))) CreateCityLayout();
+                return;
+            }
+
+            EditorGUI.BeginChangeCheck();
+
+            cityLayout.avenuesNorthSouth = EditorGUILayout.IntSlider("Avenues north-south", cityLayout.avenuesNorthSouth, 1, 5);
+            cityLayout.avenuesEastWest = EditorGUILayout.IntSlider("Avenues east-west", cityLayout.avenuesEastWest, 1, 5);
+            cityLayout.blockSize = EditorGUILayout.Slider("Block size (m)", cityLayout.blockSize, 45f, 160f);
+            cityLayout.maxTrafficDensity = EditorGUILayout.IntSlider("Max vehicles", cityLayout.maxTrafficDensity, 4, 60);
+            cityLayout.laneSpeed = EditorGUILayout.Slider("Lane speed (km/h)", cityLayout.laneSpeed, 10f, 60f);
+            cityLayout.spawnCadence = EditorGUILayout.Slider("Spawn every (s)", cityLayout.spawnCadence, 2f, 15f);
+
+            cityLayout.EnsureGridSize();
+
+            EditorGUILayout.Space(8f);
+            EditorGUILayout.LabelField($"Junctions ({cityLayout.Columns} x {cityLayout.Rows})", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Click a junction to change how it resolves traffic.", EditorStyles.miniLabel);
+
+            DrawJunctionGrid();
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorUtility.SetDirty(cityLayout);
+            }
+
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.LabelField(
+                $"1 arm: one approach green at a time, turns always safe.\n" +
+                $"Pairs: opposing approaches green together, twice the flow.\n" +
+                $"No light: north-south has right of way, east-west gives way.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.Space(10f);
+            EditorGUILayout.HelpBox(
+                $"Select vehicle models in the Project window to use them; otherwise the build " +
+                $"falls back to the project's presets, then to box cars.\n\n" +
+                $"The scene is saved to {CityOutputFolder}.",
+                MessageType.None);
+
+            if (GUILayout.Button("Build city scene", GUILayout.Height(28f))) BuildCity();
+        }
+
+        /// <summary>The grid is drawn north at the top, so it matches the scene seen from above.</summary>
+        void DrawJunctionGrid()
+        {
+            for (int row = cityLayout.Rows - 1; row >= 0; row--)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    for (int column = 0; column < cityLayout.Columns; column++)
+                    {
+                        JunctionMode mode = cityLayout.GetMode(column, row);
+                        var content = new GUIContent(JunctionModeLabels[(int)mode], $"Junction {column},{row}");
+
+                        if (GUILayout.Button(content, GUILayout.Height(30f), GUILayout.MinWidth(62f)))
+                        {
+                            cityLayout.SetMode(column, row, (JunctionMode)(((int)mode + 1) % 3));
+                        }
+                    }
+                }
+            }
+        }
+
+        void CreateCityLayout()
+        {
+            string path = EditorUtility.SaveFilePanelInProject(
+                "New city layout", "CityLayout", "asset", "Where should the layout be saved?");
+            if (string.IsNullOrEmpty(path)) return;
+
+            var layout = CreateInstance<CityLayout>();
+            layout.EnsureGridSize();
+            AssetDatabase.CreateAsset(layout, path);
+            AssetDatabase.SaveAssets();
+
+            cityLayout = layout;
+            Selection.activeObject = layout;
+        }
+
+        void BuildCity()
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "Traffic System",
+                    $"Build a {cityLayout.Columns} x {cityLayout.Rows} junction city?\n\n" +
+                    $"The current scene is replaced and the result is saved to {CityOutputFolder}.",
+                    "Build", "Cancel")) return;
+
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+
+            string scenePath = TrafficCityBuilder.Build(cityLayout, TrafficVehiclePrefabs.SelectedModels(), CityOutputFolder);
+            if (string.IsNullOrEmpty(scenePath)) return;
+
+            EditorUtility.FocusProjectWindow();
+            Selection.activeObject = AssetDatabase.LoadAssetAtPath<Object>(scenePath);
         }
 
         // ============================== SETUP TAB ==============================
