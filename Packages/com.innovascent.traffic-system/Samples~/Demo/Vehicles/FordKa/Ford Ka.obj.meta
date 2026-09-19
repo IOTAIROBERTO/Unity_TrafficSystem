@@ -1,0 +1,242 @@
+fileFormatVersion: 2
+guid: a36284065795bd544aac753190cc06ad
+ModelImporter:
+  serializedVersion: 22200
+  internalIDToNameTable: []
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_caroserie_caroserie_caroserieMat
+    second: {fileID: 2100000, guid: 5f70d15c22991d5498439baa2e567940, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_far_luminafarMat
+    second: {fileID: 2100000, guid: e81ec6fa845cee943bb77a299e71a044, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_far_semnalizaredrMat
+    second: {fileID: 2100000, guid: 44b9b0ee82fc5364bb180758e2c13f22, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_far_semnalizarestgMat
+    second: {fileID: 2100000, guid: edc946bccd0c5c54f81be7e9873dc0d0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_far_spatefarMat
+    second: {fileID: 2100000, guid: b624287556ac585459a6f4000bb12b6e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_geamfar1_farMat
+    second: {fileID: 2100000, guid: f57fc11e5f7f5af41be9d398657e8e02, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_oglinda_polySurface2_usiMat
+    second: {fileID: 2100000, guid: 9290323e6b49444479062613f10b40c0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_pCube1Mat
+    second: {fileID: 2100000, guid: 4f3ef6cdd50764b48ac80a4226b16589, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_placutaMat
+    second: {fileID: 2100000, guid: 3036f37466d1e60498e1ef081eea1541, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_placuta_TM41RSVMat
+    second: {fileID: 2100000, guid: 0a940c4b6603e6149b1ac138e6dcccdb, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_plasticparbrizMat
+    second: {fileID: 2100000, guid: 154e4fef5fe8d1d46ab4f7076832b0ea, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_polySurface2_usi_polySurface3_usastanga1Mat
+    second: {fileID: 2100000, guid: 6147f8af304046e4499202bbd72289ae, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_polySurface2_usi_polySurface4_usadreaptaMat
+    second: {fileID: 2100000, guid: dbec74789ea57804b8ac9431e19001cf, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roata1_rotiMat
+    second: {fileID: 2100000, guid: c5eb548d34b84d948baa9c545e8cd900, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roata1_roti_cauciucroata1Mat
+    second: {fileID: 2100000, guid: ec35c597b766a954eab9663eb1896d78, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roti_roata2Mat
+    second: {fileID: 2100000, guid: 91165d3115448fe4baad712a6d65a786, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roti_roata2_cauciucroata2Mat
+    second: {fileID: 2100000, guid: 61fafb6f18087454ab4aca000af0cb21, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roti_roata3Mat
+    second: {fileID: 2100000, guid: 66e38332b24b8f3478511cc8163d1b58, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roti_roata3_cauciucroata3Mat
+    second: {fileID: 2100000, guid: b2b8ef6566806a6449a4a8543dd3ac86, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roti_roata4Mat
+    second: {fileID: 2100000, guid: 5c6e38688c6273540ae6f8abd4c4560d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ford_Ka_roti_roata4_cauciucroata4Mat
+    second: {fileID: 2100000, guid: 8babd39d8fbd33746af3ff40495a9a65, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Parpriz_Ford_KaMat
+    second: {fileID: 2100000, guid: ecc18fa91fc9cee47bb52f18f7ee36c4, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Parpriz_Ford_Ka_geamdreaptafataMat
+    second: {fileID: 2100000, guid: 86aeb36d597e29042997e9abd111ad02, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Parpriz_Ford_Ka_geamstangaMat
+    second: {fileID: 2100000, guid: 2bcebad19a1894e4c8884277a08785b2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Parpriz_Ford_Ka_geamstangafataMat
+    second: {fileID: 2100000, guid: 2dcaca8c2956fe3438a694dda48e89b2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Parpriz_Ford_Ka_lunetaMat
+    second: {fileID: 2100000, guid: 50af327f76b5f7146bb70a46b7d0d6ae, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: planeMat
+    second: {fileID: 2100000, guid: d614b72f35e687546a9147dbaf46dc31, type: 2}
+  materials:
+    materialImportMode: 2
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
+    motionNodeName: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 0
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    nodeNameCollisionStrategy: 1
+    fileIdsGeneration: 2
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    keepQuads: 0
+    weldVertices: 1
+    bakeAxisConversion: 0
+    preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    meshOptimizationFlags: -1
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 1
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    strictVertexDataChecks: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  referencedClips: []
+  importAnimation: 1
+  humanDescription:
+    serializedVersion: 3
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    globalScale: 1
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
+  animationType: 2
+  humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  importBlendShapeDeformPercent: 1
+  remapMaterialsIfMaterialImportModeIsNone: 0
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

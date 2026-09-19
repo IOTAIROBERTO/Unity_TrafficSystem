@@ -1,5 +1,40 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `TrafficSystem-SampleScene`: a block city with ground, a ring road, two avenues, four blocks
+  of buildings, six lanes and four cube traffic lights, running real car models.
+- The six vehicle models are now distributed with the Demo sample instead of being kept out of
+  version control.
+
+### Changed
+- `Build Sample Scene` now generates the block city, and gained three guards learned from
+  running it:
+  - it strips the cameras, lights and audio listeners that DCC exports carry, which otherwise
+    out-rank the scene camera and hijack the view on every pooled vehicle;
+  - it rejects models whose footprint is too square to be a car, because normalising one
+    produces a box wide enough to block the carriageway;
+  - it skips presets whose prefab has no renderable mesh, so the scene cannot fill up with
+    invisible traffic.
+- `Build` is public and takes an optional model list, so it can be driven from a script. The
+  menu entry keeps the confirmation prompts.
+
+### Fixed
+- The project had no Render Pipeline Asset assigned: `GraphicsSettings.defaultRenderPipeline`
+  was null, so everything rendered through the Built-in pipeline and every URP material came
+  out magenta. `PC_RPAsset` is now assigned in GraphicsSettings and in all six quality levels.
+- Converted 38 vehicle materials from the Built-in `Standard` shader to `Universal Render
+  Pipeline/Lit`, carrying colour, texture, metallic and smoothness across.
+
+### Known issues
+- The six car prefabs in `TrafficCarsPrefabs/` have no meshes: every `MeshFilter.sharedMesh`
+  is null because the meshes lived in the project this system was extracted from. They spawn
+  invisible vehicles and are superseded by `SampleScene/`.
+- Three of the six vehicle models (Camaro, Ferrari Testarossa, Ford Ka) are rejected by the
+  builder for having a near-square footprint, and are unused.
+
+
 ## [1.0.0]
 
 First release as a UPM package. Extracted from `Assets/TRAFFIC_SYSTEM/`.

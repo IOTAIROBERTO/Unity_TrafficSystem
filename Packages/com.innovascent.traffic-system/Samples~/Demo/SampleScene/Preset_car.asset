@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
+  m_Name: Preset_car
+  m_EditorClassIdentifier: 
+  prefab: {fileID: 6400466799834489562, guid: e1833b3968f23744788008023c1faa10, type: 3}
+  nombreVehiculo: car
+  radioDeteccion: 2.5
+  multiplicadorDistancia: 1
+  multiplicadorVelocidad: 1
+  aceleracion: 2
+  frenado: 20
+  motorIdleSounds: []
+  motorAcceleratingSounds: []
+  motorHighSpeedSounds: []
+  brakingSounds: []
+  hornSounds: []
+  engineStartSounds: []
+  tireSquealSounds: []
+  tireRollingSounds: []
+  volumenMotor: 0.5
+  volumenNeumaticos: 0.3
+  pitchMotorBase: 1
+  probabilidadClaxon: 0.05
+  probabilidadDerrapeCurva: 0.3
+  pesoSpawn: 1
+  MAX_STEER_ANGLE: 35
+  STEER_SPEED: 3
+  SUSPENSION_BOUNCE: 0.03
+  SUSPENSION_SPEED: 2
+  WHEEL_RADIUS: 0.35
