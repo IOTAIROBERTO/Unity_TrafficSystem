@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Fixed — sample scene layout
+- Lanes sat on the wrong side of their avenue. The offsets were written out by hand per lane
+  and every one of the four had the sign backwards, so traffic drove on the left. They are now
+  derived from `Cross(up, direction)`, which cannot be got backwards.
+- Traffic lights stood on the near kerb, and for two of the approaches on the far side of the
+  centreline, in the opposing lane. Each now stands across the junction on the driver's right,
+  the placement used through most of the Americas, where it is read head-on while approaching.
+- Turning was a jump between two straight lines: the route swapped to waypoints sitting across
+  the junction and the vehicle steered towards them, reading as a twitch the wrong way just
+  before the turn. Turns now follow a curved path built from the approach lane into the exit
+  lane, and the choice is made two waypoints out rather than under the lights.
+- The crossroads now opens one arm at a time instead of both opposing arms together. It halves
+  throughput, but it removes oncoming traffic from the junction entirely, which is the only
+  conflict a signalled crossroads cannot separate on its own, and makes turning safe.
+- Lane speeds lowered to 24 km/h on the avenues and 20 on the ring, and density to 12.
+
 ### Fixed — traffic behaviour
 - Oncoming traffic braked vehicles inside junctions. `DetectVehicleAhead` only ignored vehicles
   facing the opposite way when *outside* an intersection, and inside one it treated any vehicle

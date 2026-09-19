@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
   m_Name: Preset_uploads_files_2787791_Mercedes+Benz+GLS+580
   m_EditorClassIdentifier: 
-  prefab: {fileID: 4410375810293540748, guid: 0a1412d54809677459b960b137ccbbc2, type: 3}
+  prefab: {fileID: 6552393999212980556, guid: 0a1412d54809677459b960b137ccbbc2, type: 3}
   nombreVehiculo: uploads_files_2787791_Mercedes+Benz+GLS+580
   radioDeteccion: 2.5
   multiplicadorDistancia: 1

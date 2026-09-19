@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
   m_Name: Preset_car
   m_EditorClassIdentifier: 
-  prefab: {fileID: 2326371163294341291, guid: e1833b3968f23744788008023c1faa10, type: 3}
+  prefab: {fileID: 1837483565127356242, guid: e1833b3968f23744788008023c1faa10, type: 3}
   nombreVehiculo: car
   radioDeteccion: 2.5
   multiplicadorDistancia: 1
