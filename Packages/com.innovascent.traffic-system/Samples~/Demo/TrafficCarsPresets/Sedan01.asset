@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
+  m_Name: Sedan01
+  m_EditorClassIdentifier: 
+  prefab: {fileID: 5319768163856419762, guid: 8c752913df9a0b840a71f24a43fad94a, type: 3}
+  nombreVehiculo: Sedan01
+  radioDeteccion: 2
+  multiplicadorDistancia: 1
+  multiplicadorVelocidad: 0.5
+  aceleracion: 1
+  frenado: 20
+  motorIdleSounds:
+  - {fileID: 8300000, guid: cfabf1c2bb4fce740ad9b31bce56d8a5, type: 3}
+  motorAcceleratingSounds:
+  - {fileID: 8300000, guid: 0688b27b0fa80f8478b89b47cb1d0359, type: 3}
+  motorHighSpeedSounds:
+  - {fileID: 8300000, guid: 1e3ec1c90a86599429527c996670a0c3, type: 3}
+  brakingSounds:
+  - {fileID: 8300000, guid: 75d0d6c77154a544daab4ae078614ce9, type: 3}
+  hornSounds:
+  - {fileID: 8300000, guid: d0e89919934b6294f85401d0d31e1434, type: 3}
+  engineStartSounds:
+  - {fileID: 8300000, guid: 3865f2a463cc0ac47a884acb45108885, type: 3}
+  tireSquealSounds:
+  - {fileID: 8300000, guid: eeaf3cc423f9d784783ccdabc89b6ce7, type: 3}
+  tireRollingSounds:
+  - {fileID: 8300000, guid: 862c54b96d1038a4ab87471a93f008e6, type: 3}
+  volumenMotor: 0.2
+  volumenNeumaticos: 0.3
+  pitchMotorBase: 1
+  probabilidadClaxon: 0.1
+  probabilidadDerrapeCurva: 0.15
+  pesoSpawn: 5
+  MAX_STEER_ANGLE: 35
+  STEER_SPEED: 3
+  SUSPENSION_BOUNCE: 0.05
+  SUSPENSION_SPEED: 0.6
+  WHEEL_RADIUS: 0.35
