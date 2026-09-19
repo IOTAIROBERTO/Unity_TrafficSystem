@@ -84,7 +84,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
             config.vehicleLayerName = LayerName;
             config.vehicleLayer = 0;          // derived from the layer name at startup
             config.useSemaforos = true;
-            config.maxTrafficDensity = 24;
+            config.maxTrafficDensity = 12;
             config.tiempoVerdeSemaforo = 10f;
             config.tiempoRojoSemaforo = 8f;
             config.distanciaFrenadoSemaforo = 16f;
@@ -122,6 +122,10 @@ namespace InnovAscent.TrafficSystem.EditorTools
             intersection.semaforoSouthNorth = lights[1];
             intersection.semaforoEastWest = lights[2];
             intersection.semaforoWestEast = lights[3];
+            // One arm at a time rather than both opposing arms together. It halves throughput, but
+            // it means a turning vehicle never has oncoming traffic to cross, which is the only
+            // conflict a signalled crossroads cannot separate on its own.
+            intersection.agruparSemaforosOpuestos = false;
             intersection.tiempoVerdeSolido = 12f;
             intersection.tiempoParpadeoVerde = 4f;
             intersection.tiempoAmarillo = 3f;
@@ -302,16 +306,20 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 bool atRing = Mathf.Abs(distanceFromCentre - RingHalf) < RoadHalfWidth + 4f;
 
                 var zone = atCentre || atRing ? LaneDirection.ZoneType.Intersection : LaneDirection.ZoneType.StraightLane;
-                // Ring traffic has priority over the avenues at the outer junctions.
-                bool yield = atRing;
 
-                waypoints[i] = CreateWaypoint(root, $"WP_{i:00}", pos, direction, laneId, zone, yield ? 7 : 5, yield);
+                // Ring traffic has priority over the avenues at the outer junctions, and traffic
+                // going straight through the crossroads has priority over anything turning across
+                // it, so the straight run carries the strongest priority of all.
+                bool yield = atRing;
+                int priority = atCentre ? 3 : (atRing ? 7 : 5);
+
+                waypoints[i] = CreateWaypoint(root, $"WP_{i:00}", pos, direction, laneId, zone, priority, yield);
 
                 if (lightWaypoint < 0 && atCentre) lightWaypoint = i;
             }
 
             if (lightWaypoint < 1) lightWaypoint = Count / 2;
-            lights.Add(BuildTrafficLight(laneId, waypoints[lightWaypoint - 1], direction));
+            lights.Add(BuildTrafficLight(laneId, waypoints[lightWaypoint - 1], direction, Vector3.zero));
 
             return new LaneConfig
             {
@@ -321,20 +329,22 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 spawnPoint = waypoints[0],
                 destroyPoints = new[] { waypoints[Count - 1] },
                 destroyRadius = 6f,
-                cadenciaSpawn = 5f,
-                variacionCadencia = 2f,
+                cadenciaSpawn = 8f,
+                variacionCadencia = 3f,
                 radioSeguridadSpawn = 14f,
-                velocidadMaxima = 34f
+                velocidadMaxima = 24f
             };
         }
 
+
         /// <summary>
-        /// Lets traffic turn at the crossroads instead of every lane running dead straight.
-        /// A vehicle reaching the waypoint before the junction picks straight, right or left, and
-        /// continues on the waypoints of whichever avenue heads that way, adopting its lane id.
+        /// Lets traffic turn at the crossroads instead of every lane running dead straight, and
+        /// commits to the turn on approach rather than under the lights.
         /// </summary>
         static void WireCrossroadTurns(List<LaneConfig> avenues, List<Vector3> directions)
         {
+            var turnsRoot = new GameObject("Turns").transform;
+
             for (int i = 0; i < avenues.Count; i++)
             {
                 LaneConfig lane = avenues[i];
@@ -342,27 +352,28 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 Vector3 rightDir = Vector3.Cross(Vector3.up, forward).normalized;
 
                 int centreIndex = FirstIndexPastCentre(lane.waypoints, forward);
-                if (centreIndex <= 0 || centreIndex >= lane.waypoints.Length - 1) continue;
+                int decisionIndex = centreIndex - 2;
+                if (decisionIndex <= 0 || centreIndex >= lane.waypoints.Length - 1) continue;
 
-                var decision = lane.waypoints[centreIndex - 1].gameObject.AddComponent<WaypointDecision>();
+                var decision = lane.waypoints[decisionIndex].gameObject.AddComponent<WaypointDecision>();
                 decision.laneIdsPermitidos = new[] { lane.laneId };
                 decision.distanciaMaximaValidacion = 30f;
                 decision.esInterseccionConSemaforo = true;
 
-                decision.rutaRecto = Tail(lane.waypoints, centreIndex);
+                decision.rutaRecto = Tail(lane.waypoints, decisionIndex + 1);
                 decision.laneIdRecto = lane.laneId;
 
                 LaneConfig toTheRight = LaneHeading(avenues, directions, rightDir);
                 if (toTheRight != null)
                 {
-                    decision.rutaDerecha = Tail(toTheRight.waypoints, FirstIndexPastCentre(toTheRight.waypoints, rightDir));
+                    decision.rutaDerecha = BuildTurnRoute(turnsRoot, lane.laneId + "_right", forward, rightDir, toTheRight);
                     decision.laneIdDerecha = toTheRight.laneId;
                 }
 
                 LaneConfig toTheLeft = LaneHeading(avenues, directions, -rightDir);
                 if (toTheLeft != null)
                 {
-                    decision.rutaIzquierda = Tail(toTheLeft.waypoints, FirstIndexPastCentre(toTheLeft.waypoints, -rightDir));
+                    decision.rutaIzquierda = BuildTurnRoute(turnsRoot, lane.laneId + "_left", forward, -rightDir, toTheLeft);
                     decision.laneIdIzquierda = toTheLeft.laneId;
                 }
 
@@ -370,6 +381,61 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 decision.probabilidadDerecha = 0.25f;
                 decision.probabilidadIzquierda = 0.25f;
             }
+        }
+
+        /// <summary>
+        /// A curved path from the approach lane into the lane heading <paramref name="exitDir"/>,
+        /// followed by the rest of that lane.
+        ///
+        /// Without it a turn is a jump between two straight lines: the route swapped to waypoints
+        /// sitting across the junction and the vehicle steered towards them, which reads as a
+        /// twitch the wrong way just before the turn.
+        /// </summary>
+        static Transform[] BuildTurnRoute(Transform parent, string name, Vector3 entryDir, Vector3 exitDir, LaneConfig exitLane)
+        {
+            Vector3 entryRight = Vector3.Cross(Vector3.up, entryDir).normalized;
+            Vector3 exitRight = Vector3.Cross(Vector3.up, exitDir).normalized;
+
+            const float EntryDistance = 12f;
+            const float ExitDistance = 12f;
+
+            Vector3 start = -entryDir * EntryDistance + entryRight * LaneOffset;
+            Vector3 bend = entryRight * LaneOffset + exitRight * LaneOffset;
+            Vector3 end = exitDir * ExitDistance + exitRight * LaneOffset;
+
+            var root = new GameObject("Turn_" + name).transform;
+            root.SetParent(parent, false);
+
+            const int Samples = 6;
+            var arc = new List<Transform>();
+
+            for (int i = 0; i <= Samples; i++)
+            {
+                float t = i / (float)Samples;
+                Vector3 point = QuadraticBezier(start, bend, end, t);
+                Vector3 heading = (QuadraticBezier(start, bend, end, Mathf.Min(1f, t + 0.01f)) - point).normalized;
+                if (heading.sqrMagnitude < 0.001f) heading = exitDir;
+
+                arc.Add(CreateWaypoint(root, $"WP_{i:00}", point, heading, exitLane.laneId,
+                                       LaneDirection.ZoneType.TurnLane, 5));
+            }
+
+            int resumeIndex = 0;
+            for (int i = 0; i < exitLane.waypoints.Length; i++)
+            {
+                if (Vector3.Dot(exitLane.waypoints[i].position, exitDir) > ExitDistance) { resumeIndex = i; break; }
+            }
+
+            Transform[] tail = Tail(exitLane.waypoints, resumeIndex);
+            if (tail != null) arc.AddRange(tail);
+
+            return arc.ToArray();
+        }
+
+        static Vector3 QuadraticBezier(Vector3 a, Vector3 b, Vector3 c, float t)
+        {
+            float inv = 1f - t;
+            return inv * inv * a + 2f * inv * t * b + t * t * c;
         }
 
         /// <summary>First waypoint at or past the middle of the crossroads, along travel.</summary>
@@ -441,7 +507,6 @@ namespace InnovAscent.TrafficSystem.EditorTools
                     // The avenues cut the ring at the middle of every side.
                     bool atJunction = Mathf.Abs(pos.x) < RoadHalfWidth + 4f || Mathf.Abs(pos.z) < RoadHalfWidth + 4f;
                     var zone = atJunction ? LaneDirection.ZoneType.Intersection : LaneDirection.ZoneType.StraightLane;
-
                     waypoints.Add(CreateWaypoint(root, $"WP_{index++:00}", pos, forward, laneId, zone, 3));
                 }
             }
@@ -459,22 +524,25 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 spawnPoint = waypoints[0],
                 destroyPoints = new[] { waypoints[waypoints.Count - 1] },
                 destroyRadius = 6f,
-                cadenciaSpawn = 4f,
-                variacionCadencia = 1.5f,
+                cadenciaSpawn = 7f,
+                variacionCadencia = 2.5f,
                 radioSeguridadSpawn = 14f,
-                velocidadMaxima = 30f
+                velocidadMaxima = 20f
             };
         }
 
         // ============================== TRAFFIC LIGHTS ==============================
 
         /// <summary>A dark housing cube carrying three small coloured cubes.</summary>
-        static TrafficLightController BuildTrafficLight(string laneId, Transform controlledWaypoint, Vector3 direction)
+        static TrafficLightController BuildTrafficLight(string laneId, Transform controlledWaypoint, Vector3 direction, Vector3 junctionCentre)
         {
             var root = new GameObject("TrafficLight_" + laneId).transform;
-            // On the kerb to the driver's right, facing the oncoming lane.
+
+            // Across the junction on the far right corner, the placement used through most of the
+            // Americas: the driver reads it straight ahead while approaching, not off to the side.
             Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
-            root.position = controlledWaypoint.position + right * (RoadHalfWidth - LaneOffset + 2f);
+            const float CornerSetback = RoadHalfWidth + 2.5f;
+            root.position = junctionCentre + direction * CornerSetback + right * CornerSetback;
             root.rotation = Quaternion.LookRotation(-direction);
 
             Block(root, "Pole", new Vector3(0f, 1.6f, 0f), new Vector3(0.3f, 3.2f, 0.3f), poleMaterial);
