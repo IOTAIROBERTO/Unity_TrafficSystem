@@ -225,11 +225,16 @@ namespace InnovAscent.TrafficSystem.EditorTools
                     {
                         var controller = junction.gameObject.AddComponent<FourWayIntersectionController>();
                         AssignLights(controller, lights);
-                        controller.agruparSemaforosOpuestos = mode == JunctionMode.OpposingPairs;
-                        controller.tiempoVerdeSolido = 12f;
-                        controller.tiempoParpadeoVerde = 4f;
-                        controller.tiempoAmarillo = 3f;
-                        controller.tiempoSeguridadRojo = 2f;
+                        bool grouped = mode == JunctionMode.OpposingPairs;
+                        controller.agruparSemaforosOpuestos = grouped;
+
+                        // One arm at a time runs four phases instead of two, so the same phase
+                        // lengths would leave every approach red for four fifths of the cycle,
+                        // and a vehicle crossing the city queues at one junction after another.
+                        controller.tiempoVerdeSolido = grouped ? 12f : 7f;
+                        controller.tiempoParpadeoVerde = grouped ? 4f : 2.5f;
+                        controller.tiempoAmarillo = grouped ? 3f : 2f;
+                        controller.tiempoSeguridadRojo = grouped ? 2f : 1.5f;
                     }
                 }
             }
@@ -544,8 +549,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             float reach = Mathf.Max(layout.HalfWidthX, layout.HalfWidthZ);
             camera.transform.SetPositionAndRotation(
-                new Vector3(0f, reach * 0.85f, -reach * 1.9f),
-                Quaternion.Euler(26f, 0f, 0f));
+                new Vector3(0f, reach * 0.6f, -reach * 1.25f),
+                Quaternion.Euler(24f, 0f, 0f));
             camera.farClipPlane = Mathf.Max(600f, reach * 6f);
         }
     }
