@@ -6,30 +6,10 @@ resolved. The entries record only what can be verified from the files themselves
 author and licence were not documented when the models were added.
 
 --------------------------------------------------------------------------------
-Chevrolet Camaro
-  File      Camaro/Chevrolet Camaro.fbx
-  Source    UNKNOWN
-  Author    UNKNOWN
-  Licence   UNKNOWN
-
 Car (generic sedan)
   File      Car/car.fbx
   Source    UNKNOWN — originally shipped alongside SketchUp save files (.skp/.skb),
             which suggests a 3D Warehouse origin. Not confirmed.
-  Author    UNKNOWN
-  Licence   UNKNOWN
-
-Ferrari Testarossa
-  File      FerrariTestarossa/uploads_files_2815401_Ferarri+Testarossa.obj
-  Source    UNKNOWN — the "uploads_files_<id>_" filename prefix is the download
-            pattern of a 3D model marketplace. Exported with Blender 2.83.5 from
-            'Ferarri Testarossa.blend'.
-  Author    UNKNOWN
-  Licence   UNKNOWN
-
-Ford Ka
-  File      FordKa/Ford Ka.obj
-  Source    UNKNOWN
   Author    UNKNOWN
   Licence   UNKNOWN
 
@@ -50,7 +30,7 @@ Shelby / AC Cobra
 TRADEMARKS
 
 These meshes depict vehicles whose shapes, names and badging are trademarks of
-their respective manufacturers (Chevrolet, Ferrari, Ford, Mercedes-Benz, Shelby).
+their respective manufacturers (Mercedes-Benz, Shelby).
 A model licence from its author does not grant any right to the manufacturer's
 marks. Check before shipping this sample in a product.
 
