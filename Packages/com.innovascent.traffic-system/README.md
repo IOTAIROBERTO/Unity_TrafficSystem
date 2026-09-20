@@ -89,7 +89,7 @@ copied into a project until you import it.
 ```
 Demo/
   SampleScene/           TrafficSystem-SampleScene.unity + its car prefabs and presets
-  Vehicles/              six car models, one folder per vehicle
+  Vehicles/              three car models, one folder per vehicle
   TrafficCarsAudios/     ambient and engine audio bank
   TrafficCarsPrefabs/    older car prefabs
   TrafficCarsScenes/     the original TrafficScene

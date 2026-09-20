@@ -17,7 +17,7 @@
   "samples": [
     {
       "displayName": "Demo City Traffic",
-      "description": "Block-city sample scene with real car models, plus vehicle prefabs, presets and an ambient audio bank (~82 MB).",
+      "description": "Block-city sample scene with real car models, plus vehicle prefabs, presets and an ambient audio bank (~67 MB).",
       "path": "Samples~/Demo"
     }
   ]
