@@ -12,9 +12,9 @@ namespace InnovAscent.TrafficSystem.EditorTools
     /// </summary>
     public class TrafficSystemWindow : EditorWindow
     {
-        enum Tab { Setup, Config, City }
+        enum Tab { Setup, Design, Config, City }
 
-        static readonly string[] TabLabels = { "Setup", "Config", "City" };
+        static readonly string[] TabLabels = { "Setup", "Design", "Config", "City" };
 
         Tab tab = Tab.Setup;
         Vector2 scroll;
@@ -23,6 +23,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
         TrafficConfig editedConfig;
         Material modelMaterial;
         CityLayout cityLayout;
+        string newLaneId = "";
 
         [MenuItem("Tools/InnovAscent/Traffic System")]
         public static void Open()
@@ -35,11 +36,13 @@ namespace InnovAscent.TrafficSystem.EditorTools
         void OnEnable()
         {
             RefreshManager();
+            TrafficLaneDesigner.Changed += Repaint;
         }
 
         void OnDisable()
         {
             DestroyConfigEditor();
+            TrafficLaneDesigner.Changed -= Repaint;
         }
 
         void OnHierarchyChange()
@@ -62,9 +65,151 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == Tab.Setup) DrawSetupTab();
+            else if (tab == Tab.Design) DrawDesignTab();
             else if (tab == Tab.Config) DrawConfigTab();
             else DrawCityTab();
             EditorGUILayout.EndScrollView();
+        }
+
+        // ============================== DESIGN TAB ==============================
+
+        void DrawDesignTab()
+        {
+            if (manager == null)
+            {
+                EditorGUILayout.HelpBox("No TrafficManager in the scene. Create one from the Setup tab first.", MessageType.Info);
+                if (GUILayout.Button("Go to Setup")) tab = Tab.Setup;
+                return;
+            }
+
+            if (TrafficLaneDesigner.IsPlacing)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Drawing '{TrafficLaneDesigner.ActiveLaneId}'. Click in the Scene view to drop a waypoint; " +
+                    $"they are placed on whatever is under the cursor, or on the ground plane.\n\n" +
+                    $"{TrafficLaneDesigner.PlacedCount} waypoint(s) so far. Enter or Esc finishes.",
+                    MessageType.Info);
+
+                if (GUILayout.Button("Finish lane", GUILayout.Height(28f))) TrafficLaneDesigner.Finish();
+                EditorGUILayout.Space(8f);
+            }
+            else
+            {
+                EditorGUILayout.LabelField("New lane", EditorStyles.boldLabel);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    newLaneId = EditorGUILayout.TextField("Lane id", newLaneId);
+                    if (GUILayout.Button("Draw", GUILayout.Width(70f), GUILayout.Height(20f)))
+                    {
+                        TrafficLaneDesigner.BeginLane(manager, newLaneId);
+                        newLaneId = "";
+                    }
+                }
+                EditorGUILayout.LabelField(
+                    "The first waypoint becomes the spawn point and the last the destroy point.",
+                    EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.Space(8f);
+            }
+
+            DrawLaneList();
+            EditorGUILayout.Space(10f);
+            DrawTrafficLightTool();
+        }
+
+        void DrawLaneList()
+        {
+            int laneCount = manager.lanes != null ? manager.lanes.Length : 0;
+            EditorGUILayout.LabelField($"Lanes ({laneCount})", EditorStyles.boldLabel);
+
+            if (laneCount == 0)
+            {
+                EditorGUILayout.HelpBox("No lanes yet. Give one a name and press Draw.", MessageType.None);
+                return;
+            }
+
+            for (int i = 0; i < laneCount; i++)
+            {
+                LaneConfig lane = manager.lanes[i];
+                int waypoints = lane.waypoints != null ? lane.waypoints.Length : 0;
+
+                using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
+                {
+                    EditorGUILayout.LabelField($"{lane.laneId}", GUILayout.MinWidth(80f));
+                    EditorGUILayout.LabelField($"{waypoints} wp", GUILayout.Width(50f));
+
+                    using (new EditorGUI.DisabledScope(waypoints == 0))
+                    {
+                        if (GUILayout.Button("Select", GUILayout.Width(55f)) && lane.waypoints[0] != null)
+                        {
+                            Selection.activeGameObject = lane.waypoints[0].parent.gameObject;
+                            SceneView.FrameLastActiveSceneView();
+                        }
+                        if (GUILayout.Button("Extend", GUILayout.Width(58f))) TrafficLaneDesigner.ResumeLane(manager, i);
+                        if (GUILayout.Button("Re-orient", GUILayout.Width(70f)) && lane.waypoints[0] != null)
+                        {
+                            TrafficLaneDesigner.OrientLane(lane.waypoints[0].parent);
+                        }
+                    }
+
+                    if (GUILayout.Button("X", GUILayout.Width(22f)) &&
+                        EditorUtility.DisplayDialog("Traffic System",
+                            $"Delete lane '{lane.laneId}' and its {waypoints} waypoint(s)?", "Delete", "Cancel"))
+                    {
+                        TrafficLaneDesigner.RemoveLane(manager, i);
+                        return;
+                    }
+                }
+            }
+
+            EditorGUILayout.Space(4f);
+            if (GUILayout.Button("Rebuild every lane from the hierarchy"))
+            {
+                foreach (LaneConfig lane in manager.lanes)
+                {
+                    if (lane.waypoints != null && lane.waypoints.Length > 0 && lane.waypoints[0] != null)
+                    {
+                        TrafficLaneDesigner.RebuildLaneConfig(manager, lane.laneId, lane.waypoints[0].parent);
+                    }
+                }
+            }
+            EditorGUILayout.LabelField(
+                "Use that after reordering or deleting waypoints in the Hierarchy.",
+                EditorStyles.wordWrappedMiniLabel);
+        }
+
+        void DrawTrafficLightTool()
+        {
+            EditorGUILayout.LabelField("Traffic light", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Select the waypoint where traffic should stop. The light goes on the kerb to its right, facing the oncoming lane.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            Transform selected = Selection.activeTransform;
+            bool isWaypoint = selected != null && selected.GetComponent<LaneDirection>() != null;
+
+            using (new EditorGUI.DisabledScope(!isWaypoint))
+            {
+                string label = isWaypoint
+                    ? $"Add traffic light at '{selected.name}'"
+                    : "Select a waypoint in the scene";
+
+                if (GUILayout.Button(label, GUILayout.Height(24f)))
+                {
+                    TrafficLightController light = TrafficLaneDesigner.AddTrafficLight(manager, selected);
+                    if (light != null) Selection.activeGameObject = light.gameObject;
+                }
+            }
+
+            int lightCount = FindObjectsByType<TrafficLightController>(FindObjectsSortMode.None).Length;
+            EditorGUILayout.LabelField($"{lightCount} traffic light(s) in the scene", EditorStyles.miniLabel);
+
+            if (lightCount >= 4)
+            {
+                EditorGUILayout.HelpBox(
+                    "With four lights on one junction, add a FourWayIntersectionController to a " +
+                    "GameObject at the crossing and assign them to run a phased cycle.",
+                    MessageType.None);
+            }
         }
 
         // ============================== CITY TAB ==============================
