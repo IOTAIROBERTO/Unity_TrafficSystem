@@ -1,6 +1,42 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0]
+
+### Added — graphical editing in the Scene view
+- The whole setup is now drawn in the Scene view and edited by dragging, without a window:
+  lanes as coloured paths with flow arrows, a green ring on the spawn point, a red ring on the
+  end of the route, and each traffic light joined to the waypoint it governs by a dotted line
+  with its detection radius drawn.
+- On the selected lane: drag a dot to move a waypoint (neighbours re-orient as you drag), click
+  the yellow dot on a segment to insert one there, the red dot beside a waypoint to delete it,
+  and the blue arrow past the last one to keep extending the lane.
+- Only the selected lane carries handles. Other lanes show small dots that select them, so a
+  city's worth of lanes stays readable instead of disappearing under a wall of gizmos.
+- **Snap** rounds dragged waypoints onto a grid, for roads that need to stay square.
+- A **Traffic System** overlay in the Scene view carries the enable toggle, the snap size, the
+  new-lane field and the traffic-light button, so authoring never leaves the viewport.
+- `TrafficLaneDesigner.CreateWaypoint` and `RenameWaypoints` are public, so waypoints can be
+  inserted at an index rather than only appended.
+
+### Added — step-by-step authoring
+- **Design tab** in `Tools > InnovAscent > Traffic System`: build a traffic setup by clicking in
+  the Scene view instead of wiring arrays by hand. Type a lane id, press **Draw**, and every
+  click drops a waypoint where the cursor points. The lane is drawn as a green outline with a
+  dotted line to the cursor and an overlay showing the lane id and the waypoint count. Enter or
+  Escape finishes.
+- Each waypoint is oriented towards the next one as it is placed, and the `LaneConfig` is
+  rebuilt on every click: the first waypoint becomes the spawn point, the last the destroy
+  point, so a lane is runnable the moment it is drawn.
+- Lane list with **Select**, **Extend** (keep clicking on an existing lane), **Re-orient** and
+  delete, plus **Rebuild every lane from the hierarchy** for when waypoints are reordered or
+  deleted by hand in the Hierarchy window.
+- **Add traffic light**: pick the waypoint the light governs and it is built on the kerb to the
+  driver's right, facing the approaching traffic — pole, housing and three coloured bulbs, with
+  a `TrafficLightController` registered against that waypoint.
+- Everything the designer creates is registered with `Undo`.
+- `Run Self-Test` menu entry: drives the whole designer API on a throwaway GameObject in the
+  open scene, asserts the result and deletes what it made. Use it to confirm the package works
+  in a host project. It opens no dialogs and does not touch the scene contents.
 
 ### Fixed — sample scene layout
 - Lanes sat on the wrong side of their avenue. The offsets were written out by hand per lane

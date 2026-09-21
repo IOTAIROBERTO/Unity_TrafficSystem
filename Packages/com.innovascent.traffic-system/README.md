@@ -20,6 +20,34 @@ Or add to `Packages/manifest.json`:
 
 Requires Unity 2022.3 or newer. No package dependencies.
 
+## Quick start on a new project
+
+Everything below happens in `Tools > InnovAscent > Traffic System`. Nothing has to be wired by
+hand and no sample has to be imported.
+
+1. **Setup tab → Fix all.** Creates the `Traffic System` GameObject with `TrafficManager` and
+   `TrafficConfig` wired together, creates the vehicle physics layer and derives the layer mask.
+2. **Setup tab → New preset asset.** Creates a `VehiclePreset` asset and registers it on the
+   manager. Drop your car prefab into its `prefab` field. The prefab needs a renderer, a
+   collider and a `Vehicle` component, with its pivot at the centre of the footprint on the
+   ground and the car pointing down +Z.
+3. **Design tab → type a lane id → Draw.** Click along the road in the Scene view; each click
+   drops a waypoint. The first is the spawn point, the last the destroy point, and the lane is
+   rebuilt on every click. Press Enter or Escape to finish.
+4. **Design tab → Add traffic light** (optional). Select the waypoint the light should govern
+   and press the button: the light is built on the kerb to the driver's right, facing the
+   traffic it stops.
+5. Repeat step 3 for every lane. Use **Extend** to keep adding to a lane you already drew, and
+   **Re-orient** after moving waypoints by hand.
+6. Press Play.
+
+To confirm the package works in your project before building anything, run
+`Tools > InnovAscent > Traffic System > Run Self-Test`. It drives the whole designer API on a
+throwaway GameObject, asserts the result in the Console and deletes what it made.
+
+If you would rather generate a whole grid city than draw it, use the **City tab**: set the
+number of avenues, the block size and the behaviour of each junction, then press Build.
+
 ## Setup window
 
 `Tools > InnovAscent > Traffic System` opens the editor window that ships with the package.
@@ -32,6 +60,19 @@ Requires Unity 2022.3 or newer. No package dependencies.
 - builds a `LaneConfig` from a selected parent GameObject: its children become the lane
   waypoints in order, first child the spawn point, last child the destroy point
 - flags broken lanes (missing laneId, duplicated laneId, no waypoints, no spawn point, no destroy points)
+
+**Design tab** — authoring by clicking in the Scene view:
+- **Draw** starts a new lane; every click drops a waypoint under the cursor, on whatever
+  collider it hits or on the ground plane when it hits nothing
+- each waypoint is oriented towards the next one, and the `LaneConfig` is rebuilt on every
+  click: first waypoint = spawn point, last = destroy point
+- the lane in progress is drawn as a green outline with a dotted line to the cursor and an
+  overlay showing the lane id and waypoint count; Enter or Escape finishes
+- the lane list offers **Select**, **Extend**, **Re-orient** and delete per lane, plus
+  **Rebuild every lane from the hierarchy** after reordering waypoints by hand
+- **Add traffic light** builds pole, housing and three coloured bulbs on the kerb to the
+  driver's right of the selected waypoint, with a `TrafficLightController` registered on it
+- everything it creates is registered with `Undo`
 
 **Config tab** — the full `TrafficConfig` inspector, editable in play mode for live tuning.
 
@@ -63,6 +104,31 @@ box that blocks the carriageway.
 With nothing selected it uses the project's existing `VehiclePreset` assets, skipping any
 whose prefab has no renderable mesh, and finally falls back to box cars — so the scene always
 runs and never spawns invisible traffic.
+
+## Editing in the Scene view
+
+Once a lane exists it is drawn in the Scene view and edited by dragging, no window needed. The
+palette lives in the Scene view's own overlay (**Traffic System**; reopen it from the ☰ button
+top right if it is hidden) and carries the **Edit in scene** toggle, a **Snap** grid, **New
+lane**, and the traffic-light button.
+
+What is drawn:
+- each lane as a coloured path with cones showing which way traffic flows
+- a green ring on the spawn point and a red ring on the end of the route
+- traffic lights joined to the waypoint they govern by a dotted line, with their detection
+  radius as a circle
+- the lane id, its waypoint count and its speed, next to the spawn point
+
+What can be dragged, on the lane you have selected:
+- **the dots** move waypoints; the neighbours re-orient themselves as you drag, and **Snap**
+  rounds the position onto a grid
+- **the yellow dot on a segment** inserts a waypoint there, which is how a straight road
+  becomes a curve
+- **the red dot beside a waypoint** deletes it, down to a minimum of two
+- **the blue arrow past the last waypoint** continues the lane with more clicks
+
+Only the selected lane carries handles; every other lane shows small dots you click to switch
+to it, so a city's worth of lanes stays readable.
 
 ## Manual setup
 

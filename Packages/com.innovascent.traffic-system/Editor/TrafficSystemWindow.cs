@@ -332,6 +332,12 @@ namespace InnovAscent.TrafficSystem.EditorTools
         {
             EditorGUILayout.LabelField("Scene checklist", EditorStyles.boldLabel);
 
+            if (GUILayout.Button("Fix all", GUILayout.Height(24f))) FixAll();
+            EditorGUILayout.LabelField(
+                "Creates the manager, the config, the vehicle layer and its mask in one go.",
+                EditorStyles.miniLabel);
+            EditorGUILayout.Space(4f);
+
             bool hasManager = manager != null;
             DrawCheck(
                 hasManager,
@@ -557,6 +563,21 @@ namespace InnovAscent.TrafficSystem.EditorTools
         }
 
         // ============================== ACTIONS ==============================
+
+        /// <summary>Runs every checklist fix in order, so a fresh scene is ready in one click.</summary>
+        void FixAll()
+        {
+            if (manager == null) CreateTrafficSystemObject();
+            if (manager == null) return;
+
+            if (manager.config == null) CreateAndAssignConfig();
+            TrafficConfig config = manager.config;
+            if (config == null) return;
+
+            string layerName = string.IsNullOrEmpty(config.vehicleLayerName) ? "Vehicles" : config.vehicleLayerName;
+            if (!TrafficLayerUtility.LayerExists(layerName)) CreateLayer(layerName);
+            if (TrafficLayerUtility.LayerExists(layerName) && config.vehicleLayer.value == 0) DeriveMask(config, layerName);
+        }
 
         void CreateTrafficSystemObject()
         {

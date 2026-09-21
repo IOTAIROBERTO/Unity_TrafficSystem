@@ -161,20 +161,41 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
         // ============================== WAYPOINTS ==============================
 
-        static void AddWaypoint(Vector3 position)
+        internal static void AddWaypoint(Vector3 position)
         {
-            var wp = new GameObject($"WP_{laneRoot.childCount:00}");
-            Undo.RegisterCreatedObjectUndo(wp, "Add waypoint");
-            wp.transform.SetParent(laneRoot, true);
-            wp.transform.position = position;
-
-            var dir = wp.AddComponent<LaneDirection>();
-            dir.laneId = laneId;
-            dir.zoneType = LaneDirection.ZoneType.StraightLane;
-
+            CreateWaypoint(laneRoot, position, laneId);
             OrientLane();
             RebuildLaneConfig();
             MarkDirty();
+        }
+
+        /// <summary>
+        /// Creates one waypoint under a lane root. A sibling index of -1 appends it, anything else
+        /// inserts it there, which is how the Scene view adds a point in the middle of a lane.
+        /// </summary>
+        public static Transform CreateWaypoint(Transform root, Vector3 position, string id, int siblingIndex = -1)
+        {
+            if (root == null) return null;
+
+            var wp = new GameObject("WP");
+            Undo.RegisterCreatedObjectUndo(wp, "Add waypoint");
+            wp.transform.SetParent(root, true);
+            wp.transform.position = position;
+            if (siblingIndex >= 0 && siblingIndex <= root.childCount - 1) wp.transform.SetSiblingIndex(siblingIndex);
+
+            var dir = wp.AddComponent<LaneDirection>();
+            dir.laneId = id;
+            dir.zoneType = LaneDirection.ZoneType.StraightLane;
+
+            RenameWaypoints(root);
+            return wp.transform;
+        }
+
+        /// <summary>Keeps the hierarchy names matching the running order after an insert or delete.</summary>
+        public static void RenameWaypoints(Transform root)
+        {
+            if (root == null) return;
+            for (int i = 0; i < root.childCount; i++) root.GetChild(i).name = $"WP_{i:00}";
         }
 
         /// <summary>Points every waypoint at the next one, so the flow direction follows the path.</summary>
