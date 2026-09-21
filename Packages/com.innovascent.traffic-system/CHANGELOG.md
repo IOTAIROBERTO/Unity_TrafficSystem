@@ -1,6 +1,79 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0]
+
+### Changed — the Setup tab no longer creates traffic that cannot run
+- **New preset asset** used to create an empty `VehiclePreset` and register it on the manager
+  straight away, which is exactly the state that took `TrafficManager.Awake` down. It now fills
+  the preset in from the car prefab selected in the Project window and adds that to the traffic;
+  with nothing selected the asset is still created but deliberately left out of the manager,
+  with a warning saying how to add it once it has a prefab.
+- The checklist row says which of the two will happen before the button is pressed.
+
+### Fixed — a preset with no prefab took the whole manager down
+- A `VehiclePreset` with no prefab assigned made `new VehiclePool(null, ...)` throw inside
+  `TrafficManager.Awake`. Awake aborted there, so no pool was ever registered and
+  `CacheVehicleWeights` never ran; `totalWeight` stayed 0, every spawn drew index 0, and the
+  dictionary lookup threw `KeyNotFoundException` once per spawn attempt for the rest of the
+  session. One unassigned field produced thousands of errors pointing at the wrong line.
+- Unusable presets are now skipped at startup with one error naming the asset, the remaining
+  presets still spawn, and `SpawnVehicle` looks the pool up with `TryGetValue` instead of
+  indexing blind. With nothing usable left it says so once rather than failing every frame.
+- The Setup tab flags a preset with no prefab before play, with buttons to select it or drop it
+  from the manager. The checklist creates empty presets on purpose, so it should be the thing
+  that catches one left unfilled.
+
+### Added — junctions, fleet palette and splines
+- **Junction stamp**: pick an arm length and a phasing, click in the Scene view, and get four
+  approach lanes, a traffic light on each and a `FourWayIntersectionController` wired to all
+  four. One-arm-at-a-time and opposing-pairs phasings carry their own timings, since four
+  phases at two-phase durations produce a cycle long enough to look broken.
+- **Fleet palette**: every vehicle preset in the project as a thumbnail in the Design tab, with
+  the ones that spawn boxed. Click to add or remove. Dragging a car prefab or a raw model from
+  the Project window onto the Scene view wraps it and adds it to the fleet.
+- Dropping a model that cannot be wrapped now adds nothing and says so. `TrafficVehiclePrefabs.Collect`
+  falls back to every preset in the project when wrapping fails, which is right for the sample
+  builder and wrong here — dropping one car was adding fifteen.
+- **Spline lanes**, in their own assembly gated on `com.unity.splines`: draw a road as a spline
+  with tangent handles and bake it into waypoints, optionally offset to the driver's right.
+  Re-baking replaces the lane instead of duplicating it. The package still has no dependency on
+  splines — without the package the assembly is skipped and everything else compiles unchanged.
+
+### Added — graphical editing in the Scene view
+- The whole setup is now drawn in the Scene view and edited by dragging, without a window:
+  lanes as coloured paths with flow arrows, a green ring on the spawn point, a red ring on the
+  end of the route, and each traffic light joined to the waypoint it governs by a dotted line
+  with its detection radius drawn.
+- On the selected lane: drag a dot to move a waypoint (neighbours re-orient as you drag), click
+  the yellow dot on a segment to insert one there, the red dot beside a waypoint to delete it,
+  and the blue arrow past the last one to keep extending the lane.
+- Only the selected lane carries handles. Other lanes show small dots that select them, so a
+  city's worth of lanes stays readable instead of disappearing under a wall of gizmos.
+- **Snap** rounds dragged waypoints onto a grid, for roads that need to stay square.
+- A **Traffic System** overlay in the Scene view carries the enable toggle, the snap size, the
+  new-lane field and the traffic-light button, so authoring never leaves the viewport.
+- `TrafficLaneDesigner.CreateWaypoint` and `RenameWaypoints` are public, so waypoints can be
+  inserted at an index rather than only appended.
+
+### Added — step-by-step authoring
+- **Design tab** in `Tools > InnovAscent > Traffic System`: build a traffic setup by clicking in
+  the Scene view instead of wiring arrays by hand. Type a lane id, press **Draw**, and every
+  click drops a waypoint where the cursor points. The lane is drawn as a green outline with a
+  dotted line to the cursor and an overlay showing the lane id and the waypoint count. Enter or
+  Escape finishes.
+- Each waypoint is oriented towards the next one as it is placed, and the `LaneConfig` is
+  rebuilt on every click: the first waypoint becomes the spawn point, the last the destroy
+  point, so a lane is runnable the moment it is drawn.
+- Lane list with **Select**, **Extend** (keep clicking on an existing lane), **Re-orient** and
+  delete, plus **Rebuild every lane from the hierarchy** for when waypoints are reordered or
+  deleted by hand in the Hierarchy window.
+- **Add traffic light**: pick the waypoint the light governs and it is built on the kerb to the
+  driver's right, facing the approaching traffic — pole, housing and three coloured bulbs, with
+  a `TrafficLightController` registered against that waypoint.
+- Everything the designer creates is registered with `Undo`.
+- `Run Self-Test` menu entry: drives the whole designer API on a throwaway GameObject in the
+  open scene, asserts the result and deletes what it made. Use it to confirm the package works
+  in a host project. It opens no dialogs and does not touch the scene contents.
 
 ### Fixed — sample scene layout
 - Lanes sat on the wrong side of their avenue. The offsets were written out by hand per lane

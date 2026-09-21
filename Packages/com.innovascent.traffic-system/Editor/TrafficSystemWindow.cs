@@ -12,9 +12,9 @@ namespace InnovAscent.TrafficSystem.EditorTools
     /// </summary>
     public class TrafficSystemWindow : EditorWindow
     {
-        enum Tab { Setup, Config, City }
+        enum Tab { Setup, Design, Config, City }
 
-        static readonly string[] TabLabels = { "Setup", "Config", "City" };
+        static readonly string[] TabLabels = { "Setup", "Design", "Config", "City" };
 
         Tab tab = Tab.Setup;
         Vector2 scroll;
@@ -23,6 +23,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
         TrafficConfig editedConfig;
         Material modelMaterial;
         CityLayout cityLayout;
+        string newLaneId = "";
 
         [MenuItem("Tools/InnovAscent/Traffic System")]
         public static void Open()
@@ -35,11 +36,13 @@ namespace InnovAscent.TrafficSystem.EditorTools
         void OnEnable()
         {
             RefreshManager();
+            TrafficLaneDesigner.Changed += Repaint;
         }
 
         void OnDisable()
         {
             DestroyConfigEditor();
+            TrafficLaneDesigner.Changed -= Repaint;
         }
 
         void OnHierarchyChange()
@@ -62,9 +65,230 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == Tab.Setup) DrawSetupTab();
+            else if (tab == Tab.Design) DrawDesignTab();
             else if (tab == Tab.Config) DrawConfigTab();
             else DrawCityTab();
             EditorGUILayout.EndScrollView();
+        }
+
+        // ============================== DESIGN TAB ==============================
+
+        void DrawDesignTab()
+        {
+            if (manager == null)
+            {
+                EditorGUILayout.HelpBox("No TrafficManager in the scene. Create one from the Setup tab first.", MessageType.Info);
+                if (GUILayout.Button("Go to Setup")) tab = Tab.Setup;
+                return;
+            }
+
+            if (TrafficLaneDesigner.IsPlacing)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Drawing '{TrafficLaneDesigner.ActiveLaneId}'. Click in the Scene view to drop a waypoint; " +
+                    $"they are placed on whatever is under the cursor, or on the ground plane.\n\n" +
+                    $"{TrafficLaneDesigner.PlacedCount} waypoint(s) so far. Enter or Esc finishes.",
+                    MessageType.Info);
+
+                if (GUILayout.Button("Finish lane", GUILayout.Height(28f))) TrafficLaneDesigner.Finish();
+                EditorGUILayout.Space(8f);
+            }
+            else
+            {
+                EditorGUILayout.LabelField("New lane", EditorStyles.boldLabel);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    newLaneId = EditorGUILayout.TextField("Lane id", newLaneId);
+                    if (GUILayout.Button("Draw", GUILayout.Width(70f), GUILayout.Height(20f)))
+                    {
+                        TrafficLaneDesigner.BeginLane(manager, newLaneId);
+                        newLaneId = "";
+                    }
+                }
+                EditorGUILayout.LabelField(
+                    "The first waypoint becomes the spawn point and the last the destroy point.",
+                    EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.Space(8f);
+            }
+
+            DrawLaneList();
+            EditorGUILayout.Space(10f);
+            DrawJunctionTool();
+            EditorGUILayout.Space(10f);
+            DrawTrafficLightTool();
+            EditorGUILayout.Space(10f);
+            DrawFleetPalette();
+        }
+
+        /// <summary>
+        /// A preset with no prefab cannot spawn anything, and used to surface only at runtime as a
+        /// pool failure. Name the asset here, with a way to fix or drop it.
+        /// </summary>
+        void DrawBrokenPresets()
+        {
+            if (manager.vehicleTypes == null) return;
+
+            for (int i = 0; i < manager.vehicleTypes.Length; i++)
+            {
+                VehicleCharacteristics preset = manager.vehicleTypes[i];
+                bool empty = preset == null;
+                if (!empty && preset.prefab != null) continue;
+
+                string message = empty
+                    ? $"Vehicle preset slot {i} is empty. It cannot spawn anything."
+                    : $"Vehicle preset '{preset.name}' has no prefab assigned. It cannot spawn anything.";
+                EditorGUILayout.HelpBox(message, MessageType.Warning);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    using (new EditorGUI.DisabledScope(empty))
+                    {
+                        if (GUILayout.Button("Select the preset", GUILayout.Width(130f)))
+                        {
+                            Selection.activeObject = preset;
+                            EditorGUIUtility.PingObject(preset);
+                        }
+                    }
+
+                    if (GUILayout.Button("Remove from the manager", GUILayout.Width(180f)))
+                    {
+                        var types = new List<VehicleCharacteristics>(manager.vehicleTypes);
+                        types.RemoveAt(i);
+                        Undo.RecordObject(manager, "Remove vehicle preset");
+                        manager.vehicleTypes = types.ToArray();
+                        EditorUtility.SetDirty(manager);
+                        return;
+                    }
+                }
+            }
+        }
+
+        void DrawJunctionTool()
+        {
+            EditorGUILayout.LabelField("Junction", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Stamps four approach lanes, a traffic light on each and a FourWayIntersectionController wired to all four.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            TrafficSceneEditor.JunctionArmLength = EditorGUILayout.FloatField(
+                "Arm length (m)", TrafficSceneEditor.JunctionArmLength);
+            TrafficSceneEditor.JunctionPhasing = (TrafficJunctionStamp.Phasing)EditorGUILayout.EnumPopup(
+                "Phasing", TrafficSceneEditor.JunctionPhasing);
+
+            bool placing = TrafficSceneEditor.PlacingJunction;
+            if (GUILayout.Button(placing ? "Click in the Scene view — Esc cancels" : "Place a junction",
+                    GUILayout.Height(24f)))
+            {
+                TrafficSceneEditor.PlacingJunction = !placing;
+                SceneView.RepaintAll();
+            }
+        }
+
+        void DrawFleetPalette()
+        {
+            EditorGUILayout.LabelField("Fleet", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Click a car to add or remove it from the traffic. Boxed cars are the ones that spawn. " +
+                "Dragging a prefab from the Project window onto the Scene view builds a preset for it.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            TrafficVehiclePalette.DrawGrid(manager);
+        }
+
+        void DrawLaneList()
+        {
+            int laneCount = manager.lanes != null ? manager.lanes.Length : 0;
+            EditorGUILayout.LabelField($"Lanes ({laneCount})", EditorStyles.boldLabel);
+
+            if (laneCount == 0)
+            {
+                EditorGUILayout.HelpBox("No lanes yet. Give one a name and press Draw.", MessageType.None);
+                return;
+            }
+
+            for (int i = 0; i < laneCount; i++)
+            {
+                LaneConfig lane = manager.lanes[i];
+                int waypoints = lane.waypoints != null ? lane.waypoints.Length : 0;
+
+                using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
+                {
+                    EditorGUILayout.LabelField($"{lane.laneId}", GUILayout.MinWidth(80f));
+                    EditorGUILayout.LabelField($"{waypoints} wp", GUILayout.Width(50f));
+
+                    using (new EditorGUI.DisabledScope(waypoints == 0))
+                    {
+                        if (GUILayout.Button("Select", GUILayout.Width(55f)) && lane.waypoints[0] != null)
+                        {
+                            Selection.activeGameObject = lane.waypoints[0].parent.gameObject;
+                            SceneView.FrameLastActiveSceneView();
+                        }
+                        if (GUILayout.Button("Extend", GUILayout.Width(58f))) TrafficLaneDesigner.ResumeLane(manager, i);
+                        if (GUILayout.Button("Re-orient", GUILayout.Width(70f)) && lane.waypoints[0] != null)
+                        {
+                            TrafficLaneDesigner.OrientLane(lane.waypoints[0].parent);
+                        }
+                    }
+
+                    if (GUILayout.Button("X", GUILayout.Width(22f)) &&
+                        EditorUtility.DisplayDialog("Traffic System",
+                            $"Delete lane '{lane.laneId}' and its {waypoints} waypoint(s)?", "Delete", "Cancel"))
+                    {
+                        TrafficLaneDesigner.RemoveLane(manager, i);
+                        return;
+                    }
+                }
+            }
+
+            EditorGUILayout.Space(4f);
+            if (GUILayout.Button("Rebuild every lane from the hierarchy"))
+            {
+                foreach (LaneConfig lane in manager.lanes)
+                {
+                    if (lane.waypoints != null && lane.waypoints.Length > 0 && lane.waypoints[0] != null)
+                    {
+                        TrafficLaneDesigner.RebuildLaneConfig(manager, lane.laneId, lane.waypoints[0].parent);
+                    }
+                }
+            }
+            EditorGUILayout.LabelField(
+                "Use that after reordering or deleting waypoints in the Hierarchy.",
+                EditorStyles.wordWrappedMiniLabel);
+        }
+
+        void DrawTrafficLightTool()
+        {
+            EditorGUILayout.LabelField("Traffic light", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Select the waypoint where traffic should stop. The light goes on the kerb to its right, facing the oncoming lane.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            Transform selected = Selection.activeTransform;
+            bool isWaypoint = selected != null && selected.GetComponent<LaneDirection>() != null;
+
+            using (new EditorGUI.DisabledScope(!isWaypoint))
+            {
+                string label = isWaypoint
+                    ? $"Add traffic light at '{selected.name}'"
+                    : "Select a waypoint in the scene";
+
+                if (GUILayout.Button(label, GUILayout.Height(24f)))
+                {
+                    TrafficLightController light = TrafficLaneDesigner.AddTrafficLight(manager, selected);
+                    if (light != null) Selection.activeGameObject = light.gameObject;
+                }
+            }
+
+            int lightCount = FindObjectsByType<TrafficLightController>(FindObjectsSortMode.None).Length;
+            EditorGUILayout.LabelField($"{lightCount} traffic light(s) in the scene", EditorStyles.miniLabel);
+
+            if (lightCount >= 4)
+            {
+                EditorGUILayout.HelpBox(
+                    "With four lights on one junction, add a FourWayIntersectionController to a " +
+                    "GameObject at the crossing and assign them to run a phased cycle.",
+                    MessageType.None);
+            }
         }
 
         // ============================== CITY TAB ==============================
@@ -187,6 +411,12 @@ namespace InnovAscent.TrafficSystem.EditorTools
         {
             EditorGUILayout.LabelField("Scene checklist", EditorStyles.boldLabel);
 
+            if (GUILayout.Button("Fix all", GUILayout.Height(24f))) FixAll();
+            EditorGUILayout.LabelField(
+                "Creates the manager, the config, the vehicle layer and its mask in one go.",
+                EditorStyles.miniLabel);
+            EditorGUILayout.Space(4f);
+
             bool hasManager = manager != null;
             DrawCheck(
                 hasManager,
@@ -234,6 +464,13 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 presetCount > 0 ? $"{presetCount} vehicle preset(s)" : "No vehicle presets assigned",
                 "New preset asset",
                 CreateVehiclePreset);
+
+            EditorGUILayout.LabelField(
+                "Select a car prefab in the Project window first and the preset is filled in and added to the " +
+                "traffic. Without one it is created empty and left out, since an empty preset cannot spawn.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            DrawBrokenPresets();
 
             int laneCount = manager.lanes != null ? manager.lanes.Length : 0;
             DrawCheck(laneCount > 0, laneCount > 0 ? $"{laneCount} lane(s)" : "No lanes configured", null, null);
@@ -413,6 +650,21 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
         // ============================== ACTIONS ==============================
 
+        /// <summary>Runs every checklist fix in order, so a fresh scene is ready in one click.</summary>
+        void FixAll()
+        {
+            if (manager == null) CreateTrafficSystemObject();
+            if (manager == null) return;
+
+            if (manager.config == null) CreateAndAssignConfig();
+            TrafficConfig config = manager.config;
+            if (config == null) return;
+
+            string layerName = string.IsNullOrEmpty(config.vehicleLayerName) ? "Vehicles" : config.vehicleLayerName;
+            if (!TrafficLayerUtility.LayerExists(layerName)) CreateLayer(layerName);
+            if (TrafficLayerUtility.LayerExists(layerName) && config.vehicleLayer.value == 0) DeriveMask(config, layerName);
+        }
+
         void CreateTrafficSystemObject()
         {
             var go = new GameObject("Traffic System");
@@ -453,27 +705,54 @@ namespace InnovAscent.TrafficSystem.EditorTools
             MarkSceneDirty();
         }
 
+        /// <summary>
+        /// Creates a vehicle preset. It only joins the fleet once it has a prefab: registering an
+        /// empty one used to break the manager at startup, because building its pool throws and
+        /// takes the whole of Awake down with it.
+        /// </summary>
         void CreateVehiclePreset()
         {
+            GameObject model = SelectedPrefabAsset();
+
+            string defaultName = model != null ? "Preset_" + model.name : "VehiclePreset";
             string path = EditorUtility.SaveFilePanelInProject(
-                "New vehicle preset", "VehiclePreset", "asset",
+                "New vehicle preset", defaultName, "asset",
                 "Where should the vehicle preset be saved?");
 
             if (string.IsNullOrEmpty(path)) return;
 
             var preset = CreateInstance<VehicleCharacteristics>();
+            preset.prefab = model;
+            preset.nombreVehiculo = model != null ? model.name : "";
+            preset.pesoSpawn = 1;
             AssetDatabase.CreateAsset(preset, path);
             AssetDatabase.SaveAssets();
 
-            if (manager != null)
+            if (manager != null && preset.prefab != null)
             {
                 Undo.RecordObject(manager, "Add vehicle preset");
                 var types = new List<VehicleCharacteristics>(manager.vehicleTypes ?? new VehicleCharacteristics[0]) { preset };
                 manager.vehicleTypes = types.ToArray();
                 MarkSceneDirty();
             }
+            else if (manager != null)
+            {
+                // Not TrafficLog.Warn: that is gated off by default, and this is editor guidance
+                // the user has to see.
+                Debug.LogWarning(
+                    $"[Traffic System] '{preset.name}' was created without a prefab, so it has not been added to " +
+                    $"the traffic. Assign its prefab, then add it from the Fleet palette in the Design tab.");
+            }
 
             Selection.activeObject = preset;
+            EditorGUIUtility.PingObject(preset);
+        }
+
+        /// <summary>The prefab or model selected in the Project window, if that is what is selected.</summary>
+        static GameObject SelectedPrefabAsset()
+        {
+            var selected = Selection.activeObject as GameObject;
+            return selected != null && PrefabUtility.IsPartOfPrefabAsset(selected) ? selected : null;
         }
 
         void AddLaneFromTransform(Transform parent)

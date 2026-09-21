@@ -66,10 +66,21 @@ namespace InnovAscent.TrafficSystem
             vehicleContainer.SetParent(transform);
 
             // Crear pools
+            // A preset with no prefab used to throw here, which aborted Awake: no pool was ever
+            // registered, so every later spawn failed on a missing dictionary key instead of
+            // reporting the one asset that was actually wrong.
             vehiclePools = new Dictionary<int, VehiclePool>();
             for (int i = 0; i < vehicleTypes.Length; i++)
             {
+                if (!IsUsable(vehicleTypes[i], i)) continue;
                 vehiclePools[i] = new VehiclePool(vehicleTypes[i].prefab, 3, vehicleContainer);
+            }
+
+            if (vehiclePools.Count == 0)
+            {
+                TrafficLog.Error(
+                    "[TrafficManager] No usable vehicle presets, so no traffic will spawn. " +
+                    "Assign a prefab to each VehiclePreset listed above, or remove it from the manager.");
             }
 
             CacheVehicleWeights();
@@ -121,6 +132,29 @@ namespace InnovAscent.TrafficSystem
             }
         }
 
+        /// <summary>
+        /// A preset can only be spawned from if it exists and points at a prefab. Reports the
+        /// offending entry by name once, at startup, rather than failing on every spawn.
+        /// </summary>
+        bool IsUsable(VehicleCharacteristics preset, int index)
+        {
+            if (preset == null)
+            {
+                TrafficLog.Error($"[TrafficManager] vehicleTypes[{index}] is empty. Assign a VehiclePreset or remove the slot.");
+                return false;
+            }
+
+            if (preset.prefab == null)
+            {
+                TrafficLog.Error(
+                    $"[TrafficManager] VehiclePreset '{preset.name}' has no prefab assigned, so it cannot spawn. " +
+                    $"Assign one in the Inspector, or remove it from the TrafficManager.");
+                return false;
+            }
+
+            return true;
+        }
+
         void CacheVehicleWeights()
         {
             vehicleWeights = new int[vehicleTypes.Length];
@@ -128,7 +162,9 @@ namespace InnovAscent.TrafficSystem
 
             for (int i = 0; i < vehicleTypes.Length; i++)
             {
-                vehicleWeights[i] = Mathf.Max(0, vehicleTypes[i].pesoSpawn);
+                // Weight 0 keeps an unusable preset out of the draw without shifting the indices
+                // the pools are keyed by.
+                vehicleWeights[i] = vehiclePools.ContainsKey(i) ? Mathf.Max(0, vehicleTypes[i].pesoSpawn) : 0;
                 totalWeight += vehicleWeights[i];
             }
         }
@@ -174,9 +210,12 @@ namespace InnovAscent.TrafficSystem
             return nearbyCount == 0;
         }
 
+        /// <summary>Index of a preset that has a pool, or -1 when there is nothing to spawn.</summary>
         int GetRandomVehicleIndexByWeight()
         {
-            if (totalWeight == 0) return 0;
+            // Every weight at zero still has to pick something spawnable, so fall back to the
+            // first preset that has a pool rather than to index 0, which may be the broken one.
+            if (totalWeight == 0) return FirstPooledIndex();
 
             int random = Random.Range(0, totalWeight);
             int cumulative = 0;
@@ -187,7 +226,17 @@ namespace InnovAscent.TrafficSystem
                 if (random < cumulative) return i;
             }
 
-            return 0;
+            return FirstPooledIndex();
+        }
+
+        int FirstPooledIndex()
+        {
+            for (int i = 0; i < vehicleTypes.Length; i++)
+            {
+                if (vehiclePools.ContainsKey(i)) return i;
+            }
+
+            return -1;
         }
 
         void SpawnVehicle(ref LaneConfig lane)
@@ -196,9 +245,12 @@ namespace InnovAscent.TrafficSystem
             if (activeCount >= activeVehicles.Length) return;
 
             int vehicleIndex = GetRandomVehicleIndexByWeight();
+            if (vehicleIndex < 0) return;
+            if (!vehiclePools.TryGetValue(vehicleIndex, out VehiclePool pool)) return;
+
             VehicleCharacteristics characteristics = vehicleTypes[vehicleIndex];
 
-            GameObject vehicleObj = vehiclePools[vehicleIndex].Get();
+            GameObject vehicleObj = pool.Get();
             vehicleObj.SetActive(true);
 
             vehicleObj.transform.position = lane.spawnPoint.position;
