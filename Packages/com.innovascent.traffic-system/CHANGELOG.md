@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0]
+
+### Changed — the demo assets ship outside the package
+- `Samples~/Demo` moved to `DemoAssets/` at the root of the same repository, and the `samples`
+  entry is gone from `package.json`. The package folder drops from 67 MB to about 450 KB: it is
+  code and editor tooling, nothing else. The demo scene, the three car models and the audio bank
+  are downloaded from the repository instead, and copied into `Assets/` by hand.
+- `Window > Package Manager > Samples` no longer offers the demo, since the Package Manager can
+  only import a `Samples~` folder inside the package. The README documents the folder and links
+  to it.
+- Worth knowing: a UPM git install clones the whole repository, so this does not make installing
+  the package a smaller download. It makes the installed package small, and it keeps the demo out
+  of every project that only wants the runtime. A smaller clone would need a separate repository
+  or a release asset.
+
 ## [1.1.1]
 
 ### Fixed — the sample shipped a model with no .meta

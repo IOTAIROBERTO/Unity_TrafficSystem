@@ -1,6 +1,6 @@
 {
   "name": "com.innovascent.traffic-system",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "displayName": "InnovAscent Traffic System",
   "description": "Waypoint-based vehicle traffic simulation with pooling, lane IDs, traffic lights and 4-way intersection control. Optimized for standalone VR (Meta Quest).",
   "unity": "2022.3",
@@ -13,12 +13,5 @@
     "simulation",
     "vr",
     "waypoints"
-  ],
-  "samples": [
-    {
-      "displayName": "Demo City Traffic",
-      "description": "Block-city sample scene with real car models, plus vehicle prefabs, presets and an ambient audio bank (~67 MB).",
-      "path": "Samples~/Demo"
-    }
   ]
 }
