@@ -18,7 +18,8 @@ Or add to `Packages/manifest.json`:
 "com.innovascent.traffic-system": "https://github.com/IOTAIROBERTO/Unity_TrafficSystem.git?path=/Packages/com.innovascent.traffic-system"
 ```
 
-Requires Unity 2022.3 or newer. No package dependencies.
+Requires Unity 2022.3 or newer. No package dependencies. The package is code and editor
+tooling only; the demo scene and the car models are downloaded separately, see **Demo assets**.
 
 ## Quick start on a new project
 
@@ -176,27 +177,70 @@ else compiles unchanged.
    to drive four of them through a realistic phased cycle.
 7. Optional: `TrafficSystem_AudioManager` for ambient city audio.
 
-## Samples
+## Demo assets
 
-Installs from `Window > Package Manager > InnovAscent Traffic System > Samples`. Nothing is
-copied into a project until you import it.
+The package itself is code and editor tooling only, about 450 KB. The demo scene, the car models
+and the audio bank live outside it, in `DemoAssets/` at the root of the same repository, so
+nothing heavy is installed unless you want it:
 
-**Demo City Traffic** (~82 MB) contains:
+<https://github.com/IOTAIROBERTO/Unity_TrafficSystem/tree/main/DemoAssets>
+
+**DemoAssets** (~67 MB) contains:
 
 ```
-Demo/
+DemoAssets/
   SampleScene/           TrafficSystem-SampleScene.unity + its car prefabs and presets
   Vehicles/              three car models, one folder per vehicle
   TrafficCarsAudios/     ambient and engine audio bank
-  TrafficCarsPrefabs/    older car prefabs
-  TrafficCarsScenes/     the original TrafficScene
+  TrafficCarsPrefabs/    older car prefabs, superseded (see Known limitations)
+  TrafficCarsScenes/     the original TrafficScene, superseded
   TrafficSystem.prefab   a pre-wired manager + config + lanes
 ```
+
+To use them, copy the folder, or any part of it, anywhere under your project's `Assets/`. Keep
+the `.meta` files with the assets: they carry the GUIDs the prefabs and the scene reference, and
+without them Unity assigns new ones and the sample comes up with missing models.
+
+Download the whole repository as a ZIP and take `DemoAssets/` out of it, or clone it:
+
+```
+git clone https://github.com/IOTAIROBERTO/Unity_TrafficSystem.git
+```
+
+The demo needs URP: its materials use `Universal Render Pipeline/Lit`, and the scene references
+`UniversalAdditionalLightData`. The package itself does not depend on URP.
+
+The scene is laid out the way the editor tools build things, so the Design tab and the Scene
+view handles work on it directly:
+
+```
+City                      scenery only
+  Ground
+  Roads
+  City Blocks
+Traffic System            TrafficManager + TrafficConfig
+  Lanes
+    Lane_north_to_south   WP_00, WP_01, ...
+    Lane_south_to_north
+    Lane_east_to_west
+    Lane_west_to_east
+    Turns                 the curved arcs between the arms
+    Lane_ring_outer_cw
+    Lane_ring_inner_ccw
+  Traffic Lights
+    TrafficLight_north_to_south, ...
+  Crossroads Controller   FourWayIntersectionController
+  Traffic Debug Helper
+```
+
+Everything the traffic system owns hangs off the manager, and the scenery is kept apart. Press
+**Draw** in the Design tab with this scene open and the new lane lands in the same `Lanes` node;
+add a traffic light and it lands in the same `Traffic Lights` node.
 
 `TrafficSystem-SampleScene` is the one to open: a block city with real car models driving the
 ring road and the signalled crossroads.
 
-Check `Vehicles/CREDITS.txt` before redistributing: these are third-party models whose author
+Check `DemoAssets/Vehicles/CREDITS.txt` before redistributing: these are third-party models whose author
 and licence were never documented, and the vehicles they depict carry manufacturer trademarks.
 
 ## Host project integration notes

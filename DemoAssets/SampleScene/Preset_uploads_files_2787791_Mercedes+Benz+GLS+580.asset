@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
-  m_Name: Preset_Shelby
+  m_Name: Preset_uploads_files_2787791_Mercedes+Benz+GLS+580
   m_EditorClassIdentifier: 
-  prefab: {fileID: 4788031490162847866, guid: 0c48f52ce5f6e6f418da9fe02cf8d63c, type: 3}
-  nombreVehiculo: Shelby
+  prefab: {fileID: 512741719462303762, guid: 0a1412d54809677459b960b137ccbbc2, type: 3}
+  nombreVehiculo: uploads_files_2787791_Mercedes+Benz+GLS+580
   radioDeteccion: 2.5
   multiplicadorDistancia: 1
   multiplicadorVelocidad: 1

@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.2.0]
+
+### Changed — the demo assets ship outside the package
+- `Samples~/Demo` moved to `DemoAssets/` at the root of the same repository, and the `samples`
+  entry is gone from `package.json`. The package folder drops from 67 MB to about 450 KB: it is
+  code and editor tooling, nothing else. The demo scene, the three car models and the audio bank
+  are downloaded from the repository instead, and copied into `Assets/` by hand.
+- `Window > Package Manager > Samples` no longer offers the demo, since the Package Manager can
+  only import a `Samples~` folder inside the package. The README documents the folder and links
+  to it.
+- Worth knowing: a UPM git install clones the whole repository, so this does not make installing
+  the package a smaller download. It makes the installed package small, and it keeps the demo out
+  of every project that only wants the runtime. A smaller clone would need a separate repository
+  or a release asset.
+
+## [1.1.1]
+
+### Fixed — the sample shipped a model with no .meta
+- `Samples~/Demo/Vehicles/Car/car.fbx` and `Vehicles/Materials/VehicleDefault.mat` had no `.meta`
+  file. Unity assigns a fresh GUID to any asset imported without one, so `TrafficCar_car` would
+  have resolved to nothing and the sample would have spawned an invisible car in any project that
+  imported it. Both `.meta` files are restored with their original GUIDs, and every GUID the
+  sample references now resolves to the package, the sample itself, a Unity built-in or URP.
+
+### Changed — the sample scene matches what the tools build
+- Everything the traffic system owns now hangs off the manager — `Lanes`, `Traffic Lights`, the
+  `Crossroads Controller` and the debug helper — and the scenery is grouped under a `City` root.
+  The lanes, the lights and the controller used to sit loose at the scene root, so drawing a lane
+  in the sample created a second `Lanes` node under the manager instead of extending the one that
+  was already there.
+- Waypoints were already named `WP_00`, so the Scene view designer can insert, drag and delete in
+  the sample without renumbering anything.
+
 ## [1.1.0]
 
 ### Changed — the Setup tab no longer creates traffic that cannot run

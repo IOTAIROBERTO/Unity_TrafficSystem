@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
-  m_Name: Preset_car
+  m_Name: Preset_Shelby
   m_EditorClassIdentifier: 
-  prefab: {fileID: 1837483565127356242, guid: e1833b3968f23744788008023c1faa10, type: 3}
-  nombreVehiculo: car
+  prefab: {fileID: 5180352047683048458, guid: 0c48f52ce5f6e6f418da9fe02cf8d63c, type: 3}
+  nombreVehiculo: Shelby
   radioDeteccion: 2.5
   multiplicadorDistancia: 1
   multiplicadorVelocidad: 1

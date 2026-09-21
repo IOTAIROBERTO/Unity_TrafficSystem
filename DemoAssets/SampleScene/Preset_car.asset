@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73904ac406b45d040b07e732d90ca6c5, type: 3}
-  m_Name: Preset_uploads_files_2787791_Mercedes+Benz+GLS+580
+  m_Name: Preset_car
   m_EditorClassIdentifier: 
-  prefab: {fileID: 6552393999212980556, guid: 0a1412d54809677459b960b137ccbbc2, type: 3}
-  nombreVehiculo: uploads_files_2787791_Mercedes+Benz+GLS+580
+  prefab: {fileID: 8693721040226210921, guid: e1833b3968f23744788008023c1faa10, type: 3}
+  nombreVehiculo: car
   radioDeteccion: 2.5
   multiplicadorDistancia: 1
   multiplicadorVelocidad: 1
