@@ -188,10 +188,37 @@ Demo/
   SampleScene/           TrafficSystem-SampleScene.unity + its car prefabs and presets
   Vehicles/              three car models, one folder per vehicle
   TrafficCarsAudios/     ambient and engine audio bank
-  TrafficCarsPrefabs/    older car prefabs
-  TrafficCarsScenes/     the original TrafficScene
+  TrafficCarsPrefabs/    older car prefabs, superseded (see Known limitations)
+  TrafficCarsScenes/     the original TrafficScene, superseded
   TrafficSystem.prefab   a pre-wired manager + config + lanes
 ```
+
+The scene is laid out the way the editor tools build things, so the Design tab and the Scene
+view handles work on it directly:
+
+```
+City                      scenery only
+  Ground
+  Roads
+  City Blocks
+Traffic System            TrafficManager + TrafficConfig
+  Lanes
+    Lane_north_to_south   WP_00, WP_01, ...
+    Lane_south_to_north
+    Lane_east_to_west
+    Lane_west_to_east
+    Turns                 the curved arcs between the arms
+    Lane_ring_outer_cw
+    Lane_ring_inner_ccw
+  Traffic Lights
+    TrafficLight_north_to_south, ...
+  Crossroads Controller   FourWayIntersectionController
+  Traffic Debug Helper
+```
+
+Everything the traffic system owns hangs off the manager, and the scenery is kept apart. Press
+**Draw** in the Design tab with this scene open and the new lane lands in the same `Lanes` node;
+add a traffic light and it lands in the same `Traffic Lights` node.
 
 `TrafficSystem-SampleScene` is the one to open: a block city with real car models driving the
 ring road and the signalled crossroads.

@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.1]
+
+### Fixed — the sample shipped a model with no .meta
+- `Samples~/Demo/Vehicles/Car/car.fbx` and `Vehicles/Materials/VehicleDefault.mat` had no `.meta`
+  file. Unity assigns a fresh GUID to any asset imported without one, so `TrafficCar_car` would
+  have resolved to nothing and the sample would have spawned an invisible car in any project that
+  imported it. Both `.meta` files are restored with their original GUIDs, and every GUID the
+  sample references now resolves to the package, the sample itself, a Unity built-in or URP.
+
+### Changed — the sample scene matches what the tools build
+- Everything the traffic system owns now hangs off the manager — `Lanes`, `Traffic Lights`, the
+  `Crossroads Controller` and the debug helper — and the scenery is grouped under a `City` root.
+  The lanes, the lights and the controller used to sit loose at the scene root, so drawing a lane
+  in the sample created a second `Lanes` node under the manager instead of extending the one that
+  was already there.
+- Waypoints were already named `WP_00`, so the Scene view designer can insert, drag and delete in
+  the sample without renumbering anything.
+
 ## [1.1.0]
 
 ### Changed — the Setup tab no longer creates traffic that cannot run

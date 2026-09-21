@@ -75,9 +75,13 @@ namespace InnovAscent.TrafficSystem.EditorTools
             CreateSharedMaterials();
             VehicleCharacteristics[] presets = CollectVehiclePresets(models);
 
-            BuildGround();
-            BuildRoads();
-            BuildCityBlocks();
+            // The scenery is grouped under one root, and everything the traffic system owns hangs
+            // off the manager, so the sample has the same shape the editor tools produce and the
+            // Scene view designer can be pointed straight at it.
+            var city = new GameObject("City").transform;
+            BuildGround(city);
+            BuildRoads(city);
+            BuildCityBlocks(city);
 
             var manager = new GameObject("Traffic System").AddComponent<TrafficManager>();
             TrafficConfig config = manager.gameObject.AddComponent<TrafficConfig>();
@@ -95,6 +99,9 @@ namespace InnovAscent.TrafficSystem.EditorTools
             var lanes = new List<LaneConfig>();
             var lights = new List<TrafficLightController>();
             var lanesRoot = new GameObject("Lanes").transform;
+            lanesRoot.SetParent(manager.transform, false);
+            var lightsRoot = new GameObject("Traffic Lights").transform;
+            lightsRoot.SetParent(manager.transform, false);
 
             // Crossroads: four signalled arms meeting at the origin. Right-hand traffic, so each
             // lane sits on Cross(up, direction) — the driver's right — of its avenue centreline.
@@ -107,7 +114,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 avenues.Add(BuildStraightLane(avenueIds[i], RingHalf + ApproachLength, avenueDirections[i], lanesRoot, lights));
             }
 
-            WireCrossroadTurns(avenues, avenueDirections);
+            WireCrossroadTurns(avenues, avenueDirections, lanesRoot);
             lanes.AddRange(avenues);
 
             // Ring road: traffic that drives all the way around the four blocks.
@@ -116,7 +123,10 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             manager.lanes = lanes.ToArray();
 
+            foreach (TrafficLightController light in lights) light.transform.SetParent(lightsRoot, true);
+
             var intersection = new GameObject("Crossroads Controller").AddComponent<FourWayIntersectionController>();
+            intersection.transform.SetParent(manager.transform, false);
             intersection.transform.position = Vector3.zero;
             intersection.semaforoNorthSouth = lights[0];
             intersection.semaforoSouthNorth = lights[1];
@@ -131,7 +141,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
             intersection.tiempoAmarillo = 3f;
             intersection.tiempoSeguridadRojo = 2f;
 
-            new GameObject("Traffic Debug Helper").AddComponent<TrafficDebugHelper>();
+            var debugHelper = new GameObject("Traffic Debug Helper").AddComponent<TrafficDebugHelper>();
+            debugHelper.transform.SetParent(manager.transform, false);
 
             PlaceCamera();
 
@@ -178,16 +189,18 @@ namespace InnovAscent.TrafficSystem.EditorTools
             return cube;
         }
 
-        static void BuildGround()
+        static void BuildGround(Transform parent)
         {
             var root = new GameObject("Ground").transform;
+            root.SetParent(parent, false);
             GameObject ground = Block(root, "Ground", new Vector3(0f, -0.25f, 0f), new Vector3(240f, 0.5f, 240f), groundMaterial);
             ground.isStatic = true;
         }
 
-        static void BuildRoads()
+        static void BuildRoads(Transform parent)
         {
             var root = new GameObject("Roads").transform;
+            root.SetParent(parent, false);
             float span = (RingHalf + ApproachLength) * 2f;
 
             // Ring road: four strips forming a square.
@@ -203,9 +216,10 @@ namespace InnovAscent.TrafficSystem.EditorTools
             foreach (Transform t in root) t.gameObject.isStatic = true;
         }
 
-        static void BuildCityBlocks()
+        static void BuildCityBlocks(Transform parent)
         {
             var root = new GameObject("City Blocks").transform;
+            root.SetParent(parent, false);
 
             // One block per quadrant, between the crossroads and the ring road.
             float inner = RoadHalfWidth + 3f;
@@ -341,9 +355,10 @@ namespace InnovAscent.TrafficSystem.EditorTools
         /// Lets traffic turn at the crossroads instead of every lane running dead straight, and
         /// commits to the turn on approach rather than under the lights.
         /// </summary>
-        static void WireCrossroadTurns(List<LaneConfig> avenues, List<Vector3> directions)
+        static void WireCrossroadTurns(List<LaneConfig> avenues, List<Vector3> directions, Transform parent)
         {
             var turnsRoot = new GameObject("Turns").transform;
+            turnsRoot.SetParent(parent, false);
 
             for (int i = 0; i < avenues.Count; i++)
             {
