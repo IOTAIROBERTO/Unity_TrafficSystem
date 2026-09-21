@@ -465,6 +465,11 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 "New preset asset",
                 CreateVehiclePreset);
 
+            EditorGUILayout.LabelField(
+                "Select a car prefab in the Project window first and the preset is filled in and added to the " +
+                "traffic. Without one it is created empty and left out, since an empty preset cannot spawn.",
+                EditorStyles.wordWrappedMiniLabel);
+
             DrawBrokenPresets();
 
             int laneCount = manager.lanes != null ? manager.lanes.Length : 0;
@@ -700,27 +705,54 @@ namespace InnovAscent.TrafficSystem.EditorTools
             MarkSceneDirty();
         }
 
+        /// <summary>
+        /// Creates a vehicle preset. It only joins the fleet once it has a prefab: registering an
+        /// empty one used to break the manager at startup, because building its pool throws and
+        /// takes the whole of Awake down with it.
+        /// </summary>
         void CreateVehiclePreset()
         {
+            GameObject model = SelectedPrefabAsset();
+
+            string defaultName = model != null ? "Preset_" + model.name : "VehiclePreset";
             string path = EditorUtility.SaveFilePanelInProject(
-                "New vehicle preset", "VehiclePreset", "asset",
+                "New vehicle preset", defaultName, "asset",
                 "Where should the vehicle preset be saved?");
 
             if (string.IsNullOrEmpty(path)) return;
 
             var preset = CreateInstance<VehicleCharacteristics>();
+            preset.prefab = model;
+            preset.nombreVehiculo = model != null ? model.name : "";
+            preset.pesoSpawn = 1;
             AssetDatabase.CreateAsset(preset, path);
             AssetDatabase.SaveAssets();
 
-            if (manager != null)
+            if (manager != null && preset.prefab != null)
             {
                 Undo.RecordObject(manager, "Add vehicle preset");
                 var types = new List<VehicleCharacteristics>(manager.vehicleTypes ?? new VehicleCharacteristics[0]) { preset };
                 manager.vehicleTypes = types.ToArray();
                 MarkSceneDirty();
             }
+            else if (manager != null)
+            {
+                // Not TrafficLog.Warn: that is gated off by default, and this is editor guidance
+                // the user has to see.
+                Debug.LogWarning(
+                    $"[Traffic System] '{preset.name}' was created without a prefab, so it has not been added to " +
+                    $"the traffic. Assign its prefab, then add it from the Fleet palette in the Design tab.");
+            }
 
             Selection.activeObject = preset;
+            EditorGUIUtility.PingObject(preset);
+        }
+
+        /// <summary>The prefab or model selected in the Project window, if that is what is selected.</summary>
+        static GameObject SelectedPrefabAsset()
+        {
+            var selected = Selection.activeObject as GameObject;
+            return selected != null && PrefabUtility.IsPartOfPrefabAsset(selected) ? selected : null;
         }
 
         void AddLaneFromTransform(Transform parent)

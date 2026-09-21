@@ -27,10 +27,13 @@ hand and no sample has to be imported.
 
 1. **Setup tab → Fix all.** Creates the `Traffic System` GameObject with `TrafficManager` and
    `TrafficConfig` wired together, creates the vehicle physics layer and derives the layer mask.
-2. **Setup tab → New preset asset.** Creates a `VehiclePreset` asset and registers it on the
-   manager. Drop your car prefab into its `prefab` field. The prefab needs a renderer, a
-   collider and a `Vehicle` component, with its pivot at the centre of the footprint on the
-   ground and the car pointing down +Z.
+2. **Select your car prefab in the Project window, then Setup tab → New preset asset.** The
+   preset is filled in with that prefab and added to the traffic. Created with nothing selected
+   it comes out empty and is deliberately left out of the manager, since an empty preset cannot
+   spawn — assign its prefab and add it from the Fleet palette in the Design tab. The prefab
+   needs a renderer, a collider and a `Vehicle` component, with its pivot at the centre of the
+   footprint on the ground and the car pointing down +Z. Dragging a car onto the Scene view does
+   all of this for you.
 3. **Design tab → type a lane id → Draw.** Click along the road in the Scene view; each click
    drops a waypoint. The first is the spawn point, the last the destroy point, and the lane is
    rebuilt on every click. Press Enter or Escape to finish.

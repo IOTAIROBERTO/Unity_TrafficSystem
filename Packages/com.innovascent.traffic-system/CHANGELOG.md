@@ -2,6 +2,14 @@
 
 ## [1.1.0]
 
+### Changed — the Setup tab no longer creates traffic that cannot run
+- **New preset asset** used to create an empty `VehiclePreset` and register it on the manager
+  straight away, which is exactly the state that took `TrafficManager.Awake` down. It now fills
+  the preset in from the car prefab selected in the Project window and adds that to the traffic;
+  with nothing selected the asset is still created but deliberately left out of the manager,
+  with a warning saying how to add it once it has a prefab.
+- The checklist row says which of the two will happen before the button is pressed.
+
 ### Fixed — a preset with no prefab took the whole manager down
 - A `VehiclePreset` with no prefab assigned made `new VehiclePool(null, ...)` throw inside
   `TrafficManager.Awake`. Awake aborted there, so no pool was ever registered and
