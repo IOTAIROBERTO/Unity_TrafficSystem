@@ -62,6 +62,24 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 }
             }
 
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                bool placing = TrafficSceneEditor.PlacingJunction;
+                string label = placing ? "Click to place · Esc" : "Junction";
+                if (GUILayout.Button(label, GUILayout.Width(140f)))
+                {
+                    TrafficSceneEditor.PlacingJunction = !placing;
+                    SceneView.RepaintAll();
+                }
+
+                TrafficSceneEditor.JunctionArmLength =
+                    EditorGUILayout.FloatField(TrafficSceneEditor.JunctionArmLength, GUILayout.Width(66f));
+            }
+
+            TrafficSceneEditor.JunctionPhasing =
+                (TrafficJunctionStamp.Phasing)EditorGUILayout.EnumPopup(
+                    TrafficSceneEditor.JunctionPhasing, GUILayout.Width(210f));
+
             Transform selected = Selection.activeTransform;
             bool isWaypoint = selected != null && selected.GetComponent<LaneDirection>() != null;
 
@@ -76,6 +94,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
             }
 
             EditorGUILayout.LabelField("Drag dots to move · yellow + inserts · red − deletes",
+                EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("Drop a car from the Project window to add it to the fleet",
                 EditorStyles.miniLabel);
         }
     }

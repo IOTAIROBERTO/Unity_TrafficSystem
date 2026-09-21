@@ -113,7 +113,86 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             DrawLaneList();
             EditorGUILayout.Space(10f);
+            DrawJunctionTool();
+            EditorGUILayout.Space(10f);
             DrawTrafficLightTool();
+            EditorGUILayout.Space(10f);
+            DrawFleetPalette();
+        }
+
+        /// <summary>
+        /// A preset with no prefab cannot spawn anything, and used to surface only at runtime as a
+        /// pool failure. Name the asset here, with a way to fix or drop it.
+        /// </summary>
+        void DrawBrokenPresets()
+        {
+            if (manager.vehicleTypes == null) return;
+
+            for (int i = 0; i < manager.vehicleTypes.Length; i++)
+            {
+                VehicleCharacteristics preset = manager.vehicleTypes[i];
+                bool empty = preset == null;
+                if (!empty && preset.prefab != null) continue;
+
+                string message = empty
+                    ? $"Vehicle preset slot {i} is empty. It cannot spawn anything."
+                    : $"Vehicle preset '{preset.name}' has no prefab assigned. It cannot spawn anything.";
+                EditorGUILayout.HelpBox(message, MessageType.Warning);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    using (new EditorGUI.DisabledScope(empty))
+                    {
+                        if (GUILayout.Button("Select the preset", GUILayout.Width(130f)))
+                        {
+                            Selection.activeObject = preset;
+                            EditorGUIUtility.PingObject(preset);
+                        }
+                    }
+
+                    if (GUILayout.Button("Remove from the manager", GUILayout.Width(180f)))
+                    {
+                        var types = new List<VehicleCharacteristics>(manager.vehicleTypes);
+                        types.RemoveAt(i);
+                        Undo.RecordObject(manager, "Remove vehicle preset");
+                        manager.vehicleTypes = types.ToArray();
+                        EditorUtility.SetDirty(manager);
+                        return;
+                    }
+                }
+            }
+        }
+
+        void DrawJunctionTool()
+        {
+            EditorGUILayout.LabelField("Junction", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Stamps four approach lanes, a traffic light on each and a FourWayIntersectionController wired to all four.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            TrafficSceneEditor.JunctionArmLength = EditorGUILayout.FloatField(
+                "Arm length (m)", TrafficSceneEditor.JunctionArmLength);
+            TrafficSceneEditor.JunctionPhasing = (TrafficJunctionStamp.Phasing)EditorGUILayout.EnumPopup(
+                "Phasing", TrafficSceneEditor.JunctionPhasing);
+
+            bool placing = TrafficSceneEditor.PlacingJunction;
+            if (GUILayout.Button(placing ? "Click in the Scene view — Esc cancels" : "Place a junction",
+                    GUILayout.Height(24f)))
+            {
+                TrafficSceneEditor.PlacingJunction = !placing;
+                SceneView.RepaintAll();
+            }
+        }
+
+        void DrawFleetPalette()
+        {
+            EditorGUILayout.LabelField("Fleet", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Click a car to add or remove it from the traffic. Boxed cars are the ones that spawn. " +
+                "Dragging a prefab from the Project window onto the Scene view builds a preset for it.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            TrafficVehiclePalette.DrawGrid(manager);
         }
 
         void DrawLaneList()
@@ -385,6 +464,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 presetCount > 0 ? $"{presetCount} vehicle preset(s)" : "No vehicle presets assigned",
                 "New preset asset",
                 CreateVehiclePreset);
+
+            DrawBrokenPresets();
 
             int laneCount = manager.lanes != null ? manager.lanes.Length : 0;
             DrawCheck(laneCount > 0, laneCount > 0 ? $"{laneCount} lane(s)" : "No lanes configured", null, null);

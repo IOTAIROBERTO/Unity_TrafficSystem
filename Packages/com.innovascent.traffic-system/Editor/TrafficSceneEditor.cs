@@ -43,7 +43,12 @@ namespace InnovAscent.TrafficSystem.EditorTools
             if (TrafficLaneDesigner.IsPlacing) return; // click-to-place owns the view while drawing
 
             TrafficManager manager = Object.FindFirstObjectByType<TrafficManager>();
-            if (manager == null || manager.lanes == null) return;
+            if (manager == null) return;
+
+            HandleVehicleDrop(manager);
+            HandleJunctionPlacement(manager);
+
+            if (manager.lanes == null) return;
 
             int active = ActiveLaneIndex(manager);
             for (int i = 0; i < manager.lanes.Length; i++)
@@ -73,6 +78,98 @@ namespace InnovAscent.TrafficSystem.EditorTools
             }
 
             return -1;
+        }
+
+        // ============================== DROPPING VEHICLES ==============================
+
+        /// <summary>
+        /// Accepts a vehicle preset, a prefab or a raw model dragged from the Project window onto
+        /// the Scene view, and adds it to the fleet the manager spawns.
+        /// </summary>
+        static void HandleVehicleDrop(TrafficManager manager)
+        {
+            Event e = Event.current;
+            if (e.type != EventType.DragUpdated && e.type != EventType.DragPerform) return;
+            if (!TrafficVehiclePalette.CanAccept(DragAndDrop.objectReferences)) return;
+
+            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+
+            if (e.type == EventType.DragPerform)
+            {
+                DragAndDrop.AcceptDrag();
+                int added = TrafficVehiclePalette.Accept(manager, DragAndDrop.objectReferences);
+                if (added > 0) TrafficLog.Info($"{added} vehicle(s) added to the traffic fleet.");
+            }
+
+            e.Use();
+        }
+
+        // ============================== STAMPING JUNCTIONS ==============================
+
+        /// <summary>Set by the overlay: the next Scene view click stamps a crossroads.</summary>
+        public static bool PlacingJunction { get; set; }
+
+        /// <summary>Phasing the next stamped junction runs.</summary>
+        public static TrafficJunctionStamp.Phasing JunctionPhasing { get; set; } =
+            TrafficJunctionStamp.Phasing.OneArmAtATime;
+
+        /// <summary>Arm length of the next stamped junction, in metres.</summary>
+        public static float JunctionArmLength { get; set; } = 45f;
+
+        static void HandleJunctionPlacement(TrafficManager manager)
+        {
+            if (!PlacingJunction) return;
+
+            Event e = Event.current;
+
+            int control = GUIUtility.GetControlID(FocusType.Passive);
+            if (e.type == EventType.Layout) HandleUtility.AddDefaultControl(control);
+
+            if (e.type == EventType.Repaint && TryPointUnderCursor(out Vector3 preview))
+            {
+                Handles.color = new Color(0.3f, 0.8f, 1f, 0.8f);
+                float half = JunctionArmLength;
+                Handles.DrawLine(preview - Vector3.right * half, preview + Vector3.right * half, 2f);
+                Handles.DrawLine(preview - Vector3.forward * half, preview + Vector3.forward * half, 2f);
+                Handles.DrawWireDisc(preview, Vector3.up, 6f, 2f);
+                SceneView.RepaintAll();
+            }
+
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
+            {
+                PlacingJunction = false;
+                e.Use();
+                return;
+            }
+
+            bool click = e.type == EventType.MouseDown && e.button == 0 && !e.alt && !e.control;
+            if (!click || !TryPointUnderCursor(out Vector3 centre)) return;
+
+            TrafficJunctionStamp.Create(manager, centre, JunctionArmLength, phasing: JunctionPhasing);
+            PlacingJunction = false;
+            MarkDirty();
+            e.Use();
+        }
+
+        static bool TryPointUnderCursor(out Vector3 point)
+        {
+            Ray ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
+
+            if (Physics.Raycast(ray, out RaycastHit hit, 5000f))
+            {
+                point = hit.point;
+                return true;
+            }
+
+            var ground = new Plane(Vector3.up, Vector3.zero);
+            if (ground.Raycast(ray, out float distance))
+            {
+                point = ray.GetPoint(distance);
+                return true;
+            }
+
+            point = Vector3.zero;
+            return false;
         }
 
         // ============================== LANES ==============================

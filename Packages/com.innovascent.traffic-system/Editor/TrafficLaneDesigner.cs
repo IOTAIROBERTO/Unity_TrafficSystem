@@ -22,6 +22,9 @@ namespace InnovAscent.TrafficSystem.EditorTools
         public static string ActiveLaneId => laneId;
         public static int PlacedCount => laneRoot != null ? laneRoot.childCount : 0;
 
+        /// <summary>The lane being drawn, so a builder can read back what it just placed.</summary>
+        public static Transform ActiveLaneRoot => laneRoot;
+
         /// <summary>Raised whenever the designer changes something the window shows.</summary>
         public static System.Action Changed;
 
@@ -161,7 +164,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
         // ============================== WAYPOINTS ==============================
 
-        internal static void AddWaypoint(Vector3 position)
+        /// <summary>Adds a waypoint to the lane currently being drawn.</summary>
+        public static void AddWaypoint(Vector3 position)
         {
             CreateWaypoint(laneRoot, position, laneId);
             OrientLane();

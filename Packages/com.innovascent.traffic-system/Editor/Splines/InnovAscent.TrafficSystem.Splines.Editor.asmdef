@@ -1,0 +1,29 @@
+{
+    "name": "InnovAscent.TrafficSystem.Splines.Editor",
+    "rootNamespace": "InnovAscent.TrafficSystem.EditorTools",
+    "references": [
+        "InnovAscent.TrafficSystem",
+        "InnovAscent.TrafficSystem.Editor",
+        "Unity.Splines",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "TRAFFIC_SPLINES"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.splines",
+            "expression": "2.0.0",
+            "define": "TRAFFIC_SPLINES"
+        }
+    ],
+    "noEngineReferences": false
+}

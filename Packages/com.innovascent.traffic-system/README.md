@@ -130,6 +130,34 @@ What can be dragged, on the lane you have selected:
 Only the selected lane carries handles; every other lane shows small dots you click to switch
 to it, so a city's worth of lanes stays readable.
 
+## Junctions, the fleet and splines
+
+**Stamp a junction.** Set an arm length and a phasing in the overlay or the Design tab, press
+**Junction**, and click where the roads cross. You get four approach lanes, a traffic light on
+each and a `FourWayIntersectionController` wired to all four, timed for the phasing chosen:
+
+- *One arm at a time* — four phases. Halves throughput, but no oncoming traffic is ever in the
+  box, which is the one conflict a signalled crossroads cannot separate, so turning is safe.
+- *Opposing pairs* — two phases. More throughput; turns cross oncoming traffic.
+
+**The fleet.** The Design tab shows every `VehiclePreset` in the project as a thumbnail. Click
+one to add or remove it from the traffic; the ones that spawn are boxed. Dragging a car prefab
+or a raw model from the Project window onto the Scene view builds a preset for it and adds it:
+the model is wrapped on the way in — pivot moved to the centre of the footprint on the ground,
+long axis rotated onto +Z, length normalised to 4.5 m, and the cameras and lights that DCC
+exports carry stripped out. A model too square to be a car is refused with a warning rather
+than turned into a box that blocks the carriageway.
+
+**Curves from splines.** Install `com.unity.splines` and a menu entry appears:
+`Tools > InnovAscent > Traffic System > Bake selected spline into a lane`. Draw the road as a
+spline with its tangent handles, then bake it: the spline is sampled at a fixed spacing into
+waypoints, optionally offset to the driver's right of the centreline. Re-baking replaces the
+lane rather than piling up copies, so a tangent can be nudged and baked again.
+
+The splines support lives in its own assembly, gated on `com.unity.splines` being present. The
+package has no dependency on it: without the package that assembly is skipped and everything
+else compiles unchanged.
+
 ## Manual setup
 
 1. Create a physics layer for vehicles (`Edit > Project Settings > Tags and Layers`).

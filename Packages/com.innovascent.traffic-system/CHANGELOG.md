@@ -2,6 +2,35 @@
 
 ## [1.1.0]
 
+### Fixed — a preset with no prefab took the whole manager down
+- A `VehiclePreset` with no prefab assigned made `new VehiclePool(null, ...)` throw inside
+  `TrafficManager.Awake`. Awake aborted there, so no pool was ever registered and
+  `CacheVehicleWeights` never ran; `totalWeight` stayed 0, every spawn drew index 0, and the
+  dictionary lookup threw `KeyNotFoundException` once per spawn attempt for the rest of the
+  session. One unassigned field produced thousands of errors pointing at the wrong line.
+- Unusable presets are now skipped at startup with one error naming the asset, the remaining
+  presets still spawn, and `SpawnVehicle` looks the pool up with `TryGetValue` instead of
+  indexing blind. With nothing usable left it says so once rather than failing every frame.
+- The Setup tab flags a preset with no prefab before play, with buttons to select it or drop it
+  from the manager. The checklist creates empty presets on purpose, so it should be the thing
+  that catches one left unfilled.
+
+### Added — junctions, fleet palette and splines
+- **Junction stamp**: pick an arm length and a phasing, click in the Scene view, and get four
+  approach lanes, a traffic light on each and a `FourWayIntersectionController` wired to all
+  four. One-arm-at-a-time and opposing-pairs phasings carry their own timings, since four
+  phases at two-phase durations produce a cycle long enough to look broken.
+- **Fleet palette**: every vehicle preset in the project as a thumbnail in the Design tab, with
+  the ones that spawn boxed. Click to add or remove. Dragging a car prefab or a raw model from
+  the Project window onto the Scene view wraps it and adds it to the fleet.
+- Dropping a model that cannot be wrapped now adds nothing and says so. `TrafficVehiclePrefabs.Collect`
+  falls back to every preset in the project when wrapping fails, which is right for the sample
+  builder and wrong here — dropping one car was adding fifteen.
+- **Spline lanes**, in their own assembly gated on `com.unity.splines`: draw a road as a spline
+  with tangent handles and bake it into waypoints, optionally offset to the driver's right.
+  Re-baking replaces the lane instead of duplicating it. The package still has no dependency on
+  splines — without the package the assembly is skipped and everything else compiles unchanged.
+
 ### Added — graphical editing in the Scene view
 - The whole setup is now drawn in the Scene view and edited by dragging, without a window:
   lanes as coloured paths with flow arrows, a green ring on the spawn point, a red ring on the
