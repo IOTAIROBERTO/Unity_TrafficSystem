@@ -341,6 +341,19 @@ namespace InnovAscent.TrafficSystem.EditorTools
                     // decision aiming at one can be sent down the other.
                     if (i > 0) piece.laneId = lane.laneId + "_" + (i + 1);
 
+                    // And its own root: pieces left sharing one parent look independent until the
+                    // first is removed, which destroys the other's waypoints with it.
+                    if (i > 0)
+                    {
+                        Transform oldRoot = runs[i][0].parent;
+                        var newRoot = new GameObject("Lane_" + piece.laneId);
+                        Undo.RegisterCreatedObjectUndo(newRoot, "Split lane");
+                        newRoot.transform.SetParent(oldRoot != null ? oldRoot.parent : null, false);
+
+                        foreach (Transform waypoint in runs[i]) Undo.SetTransformParent(waypoint, newRoot.transform, "Split lane");
+                        TrafficLaneDesigner.RenameWaypoints(newRoot.transform);
+                    }
+
                     piece.waypoints = runs[i].ToArray();
                     piece.spawnPoint = piece.waypoints[0];
                     piece.destroyPoints = new[] { piece.waypoints[piece.waypoints.Length - 1] };
