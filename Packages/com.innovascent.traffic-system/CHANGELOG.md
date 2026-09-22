@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.3]
+
+### Fixed — marking a whole scene could leave junctions where nobody gives way
+- A waypoint often sits on more than one crossing. `Give way at every crossing` wrote each crossing
+  independently, so a later one cleared the `requiresYield` an earlier one had set: on a real
+  layout, 13 waypoints served two or three crossings and **3 of the 25 ended with neither side
+  yielding**, while the UI still showed all 25 as marked.
+- Giving way is now sticky while marking a scene: a waypoint that has to yield anywhere keeps
+  yielding, holds the weaker priority, and accumulates the lanes it has to cooperate with. Picking
+  the rule for a single crossing by hand still wins outright, since that is a deliberate choice.
+- The self-test asserts that after marking a scene no crossing is left with nobody yielding.
+
 ## [1.4.2]
 
 ### Fixed — marking a crossing did nothing on lanes built outside the lane designer
