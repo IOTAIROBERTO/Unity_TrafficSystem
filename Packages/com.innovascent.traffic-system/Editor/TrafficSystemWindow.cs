@@ -300,6 +300,27 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 }
             }
 
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(crossings == null || crossings.Count == 0))
+                {
+                    if (GUILayout.Button("Turn at every crossing"))
+                    {
+                        int added = TrafficCrossingTool.AddSensibleTurns(manager, 120f, crossingTurnWeight, out int skipped);
+                        crossings = TrafficCrossingTool.Find(manager);
+                        SceneView.RepaintAll();
+                        Debug.Log($"[Traffic System] Added {added} turn(s), skipped {skipped} that would have doubled traffic back on itself.");
+                    }
+
+                    if (GUILayout.Button("Stop point on every yielding side"))
+                    {
+                        int added = AddStopPointsWhereYielding();
+                        SceneView.RepaintAll();
+                        Debug.Log($"[Traffic System] Added {added} stop point(s), with no light to render. Each runs the timed cycle from TrafficConfig.");
+                    }
+                }
+            }
+
             if (crossings == null)
             {
                 EditorGUILayout.HelpBox("Press Scan to list the crossings in this scene.", MessageType.None);
@@ -456,6 +477,48 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 {
                     if (waypoint == candidate) return true;
                 }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// A stop at each crossing on the side that gives way, with nothing to render. Give way
+        /// alone only holds a vehicle while another is actually close; a stop point makes the
+        /// approach pause on its own.
+        /// </summary>
+        int AddStopPointsWhereYielding()
+        {
+            int added = 0;
+
+            foreach (TrafficCrossingTool.Crossing crossing in crossings)
+            {
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    int lane = pass == 0 ? crossing.laneA : crossing.laneB;
+                    int index = pass == 0 ? crossing.indexA : crossing.indexB;
+
+                    Transform waypoint = TrafficCrossingTool.WaypointAt(manager, lane, index);
+                    if (waypoint == null) continue;
+
+                    var direction = waypoint.GetComponent<LaneDirection>();
+                    if (direction == null || !direction.requiresYield) continue;
+                    if (manager.GetTrafficLightForWaypoint(waypoint) != null) continue;
+                    if (AlreadyHasStop(waypoint)) continue;
+
+                    if (TrafficLaneDesigner.AddStopPoint(manager, waypoint) != null) added++;
+                }
+            }
+
+            return added;
+        }
+
+        /// <summary>The registry is only filled in play mode, so check the scene instead.</summary>
+        bool AlreadyHasStop(Transform waypoint)
+        {
+            foreach (TrafficLightController light in FindObjectsByType<TrafficLightController>(FindObjectsSortMode.None))
+            {
+                if (light.waypointControlado == waypoint) return true;
             }
 
             return false;
