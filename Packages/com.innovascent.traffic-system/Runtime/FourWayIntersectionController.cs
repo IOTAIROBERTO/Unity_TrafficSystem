@@ -97,10 +97,17 @@ namespace InnovAscent.TrafficSystem
             // ✅ ACTIVAR CONTROL EXTERNO EN TODOS LOS SEMÁFOROS
             foreach (var sem in todosLosSemaforos)
             {
-                if (sem != null)
+                // A light with no waypoint controls nothing, so driving it only produces log noise
+                // and leaves a dead entry in the cycle.
+                if (sem == null) continue;
+
+                if (sem.waypointControlado == null)
                 {
-                    sem.SetControlExterno(true);
+                    TrafficLog.Warn($"[FourWayController] '{sem.name}' no tiene waypoint asignado, se omite del ciclo");
+                    continue;
                 }
+
+                sem.SetControlExterno(true);
             }
 
             TrafficLog.Info($"[FourWayController] ✅ Inicializado con {todosLosSemaforos.Length} semáforos");
