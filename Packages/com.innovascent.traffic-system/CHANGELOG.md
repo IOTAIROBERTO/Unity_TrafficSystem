@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0]
+
+### Added — turns and stops without a traffic light to render
+- **Turn at every crossing** adds a turn in both directions at each crossing, skipping any where
+  the two lanes head within 120 degrees of opposite: without that filter a crossing between
+  lanes running against each other gets a route that doubles traffic back on itself.
+- **Stop point on every yielding side**, and `TrafficLaneDesigner.AddStopPoint`, create a
+  `TrafficLightController` on a bare GameObject with no pole, housing or bulbs. Every use of the
+  bulbs in the controller is null-guarded, so the stop works with nothing to render — for floors
+  that already carry their own markings.
+- A stop point on its own runs the green/amber/red cycle from `TrafficConfig`, so it is a timed
+  pause. Assign it to a `FourWayIntersectionController` to phase it with others. Give way, by
+  contrast, only holds a vehicle while another with priority is actually close.
+
 ## [1.4.3]
 
 ### Fixed — marking a whole scene could leave junctions where nobody gives way

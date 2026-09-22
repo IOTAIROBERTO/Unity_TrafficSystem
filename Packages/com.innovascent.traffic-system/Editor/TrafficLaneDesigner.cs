@@ -340,6 +340,35 @@ namespace InnovAscent.TrafficSystem.EditorTools
             return light;
         }
 
+        /// <summary>
+        /// A stop with no traffic light to look at: the controller and nothing else, so traffic
+        /// pauses at this waypoint without a pole, a housing or bulbs appearing in the scene. Useful
+        /// where the floor already carries the markings and a modelled signal would be in the way.
+        ///
+        /// On its own it runs the green/amber/red cycle from <see cref="TrafficConfig"/>, so it is a
+        /// timed pause rather than a give-way. Assign it to a
+        /// <see cref="FourWayIntersectionController"/> to have it phased with others.
+        /// </summary>
+        public static TrafficLightController AddStopPoint(TrafficManager target, Transform controlledWaypoint)
+        {
+            if (target == null || controlledWaypoint == null) return null;
+
+            var root = new GameObject("Stop_" + controlledWaypoint.name);
+            Undo.RegisterCreatedObjectUndo(root, "Add stop point");
+            root.transform.SetParent(FindOrCreate(target.transform, "Stop Points"), false);
+            root.transform.position = controlledWaypoint.position;
+            root.transform.rotation = controlledWaypoint.rotation;
+
+            var light = root.AddComponent<TrafficLightController>();
+            light.waypointControlado = controlledWaypoint;
+            light.radioDeteccion = 12f;
+            // luzRoja, luzAmarilla and luzVerde stay null on purpose: every use of them in
+            // TrafficLightController is null-guarded, so the stop works with nothing to render.
+
+            MarkDirty();
+            return light;
+        }
+
         // ============================== HELPERS ==============================
 
         static Transform FindOrCreate(Transform parent, string name)

@@ -237,6 +237,47 @@ namespace InnovAscent.TrafficSystem.EditorTools
             return TrafficBranchTool.Branch(manager, source, manager.lanes[toLane].laneId, weight, out error);
         }
 
+        /// <summary>
+        /// Adds a turn at every crossing, in both directions, wherever the turn is one a vehicle
+        /// could actually take. A crossing where the two lanes head in opposite directions would
+        /// otherwise get a route that doubles the traffic back on itself.
+        /// </summary>
+        /// <param name="maxTurnAngle">
+        /// Largest heading change allowed, in degrees. 120 keeps ordinary left and right turns and
+        /// rejects anything that amounts to a U-turn.
+        /// </param>
+        /// <returns>How many turns were added.</returns>
+        public static int AddSensibleTurns(TrafficManager manager, float maxTurnAngle, float weight,
+                                           out int skipped)
+        {
+            int added = 0;
+            skipped = 0;
+
+            foreach (Crossing crossing in Find(manager))
+            {
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    bool fromAtoB = pass == 0;
+
+                    int fromLane = fromAtoB ? crossing.laneA : crossing.laneB;
+                    int fromIndex = fromAtoB ? crossing.indexA : crossing.indexB;
+                    int toLane = fromAtoB ? crossing.laneB : crossing.laneA;
+                    int toIndex = fromAtoB ? crossing.indexB : crossing.indexA;
+
+                    if (TurnExists(manager, fromLane, fromIndex, manager.lanes[toLane].laneId)) continue;
+
+                    float angle = Vector3.Angle(FlowAt(manager, fromLane, fromIndex),
+                                                FlowAt(manager, toLane, toIndex));
+                    if (angle > maxTurnAngle) { skipped++; continue; }
+
+                    if (AddTurn(manager, crossing, fromAtoB, weight, out _)) added++;
+                    else skipped++;
+                }
+            }
+
+            return added;
+        }
+
         // ============================== HELPERS ==============================
 
         public static Transform WaypointAt(TrafficManager manager, int lane, int index)
