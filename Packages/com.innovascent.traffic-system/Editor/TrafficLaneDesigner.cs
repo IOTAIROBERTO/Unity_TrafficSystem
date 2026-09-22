@@ -369,6 +369,85 @@ namespace InnovAscent.TrafficSystem.EditorTools
             return light;
         }
 
+        /// <summary>
+        /// Replaces every sharp corner of a lane with an arc the vehicles can actually follow.
+        /// A lane drawn as straight runs meeting at right angles asks for a turn of zero radius:
+        /// the driver cannot steer that fast, so the body swings wide and clips whatever the lane
+        /// runs beside. Rounding the corner in the geometry is what keeps the sweep inside the aisle.
+        /// </summary>
+        /// <param name="radius">Corner radius in metres. Clamped per corner to what the adjoining runs allow.</param>
+        /// <param name="minAngle">Corners gentler than this are left alone.</param>
+        /// <returns>How many corners were rounded.</returns>
+        public static int RoundCorners(Transform root, float radius = 3f, float minAngle = 25f)
+        {
+            if (root == null || root.childCount < 3) return 0;
+
+            var points = new List<Vector3>();
+            for (int i = 0; i < root.childCount; i++) points.Add(root.GetChild(i).position);
+
+            var result = new List<Vector3> { points[0] };
+            int rounded = 0;
+
+            for (int i = 1; i < points.Count - 1; i++)
+            {
+                Vector3 prev = points[i - 1], here = points[i], next = points[i + 1];
+                Vector3 inDir = here - prev, outDir = next - here;
+                inDir.y = 0f; outDir.y = 0f;
+
+                float inLen = inDir.magnitude, outLen = outDir.magnitude;
+                if (inLen < 0.01f || outLen < 0.01f) { result.Add(here); continue; }
+
+                inDir /= inLen; outDir /= outLen;
+                float angle = Vector3.Angle(inDir, outDir);
+                if (angle < minAngle) { result.Add(here); continue; }
+
+                // Fillet: pull back along both runs by the tangent length, then sweep between.
+                float half = angle * 0.5f * Mathf.Deg2Rad;
+                float tangent = radius / Mathf.Max(0.05f, Mathf.Tan((Mathf.PI - angle * Mathf.Deg2Rad) * 0.5f));
+                tangent = Mathf.Min(tangent, inLen * 0.45f, outLen * 0.45f);
+                if (tangent < 0.2f) { result.Add(here); continue; }
+
+                Vector3 start = here - inDir * tangent;
+                Vector3 end = here + outDir * tangent;
+
+                int steps = Mathf.Clamp(Mathf.CeilToInt(angle / 15f), 2, 10);
+                for (int k = 0; k <= steps; k++)
+                {
+                    float t = (float)k / steps;
+                    // quadratic through the corner: tangent to both runs by construction
+                    Vector3 a = Vector3.Lerp(start, here, t);
+                    Vector3 b = Vector3.Lerp(here, end, t);
+                    result.Add(Vector3.Lerp(a, b, t));
+                }
+
+                rounded++;
+            }
+
+            result.Add(points[points.Count - 1]);
+            if (rounded == 0) return 0;
+
+            // Rebuild the run in place: same lane, same parent, new spacing.
+            string laneId = "";
+            var firstDirection = root.GetChild(0).GetComponent<LaneDirection>();
+            if (firstDirection != null) laneId = firstDirection.laneId;
+
+            for (int i = root.childCount - 1; i >= 0; i--)
+            {
+                Undo.DestroyObjectImmediate(root.GetChild(i).gameObject);
+            }
+
+            Vector3 last = new Vector3(9999f, 0f, 9999f);
+            foreach (Vector3 p in result)
+            {
+                if (Vector3.Distance(last, p) < 0.4f) continue;
+                CreateWaypoint(root, p, laneId);
+                last = p;
+            }
+
+            OrientLane(root);
+            return rounded;
+        }
+
         // ============================== HELPERS ==============================
 
         static Transform FindOrCreate(Transform parent, string name)

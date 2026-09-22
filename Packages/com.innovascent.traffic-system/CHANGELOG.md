@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.0]
+
+### Added — round the corners of a lane
+- `TrafficLaneDesigner.RoundCorners` replaces every sharp corner with an arc the vehicles can
+  follow. A lane drawn as straight runs meeting at a right angle asks for a turn of zero radius:
+  the driver cannot steer that fast, so the body swings wide and clips whatever the lane runs
+  beside. On a real warehouse a forklift 3.24 m long was ending up 0.53 m inside the racking at an
+  aisle mouth, which no waypoint measurement catches because the waypoints themselves were clear.
+- The radius is clamped per corner to what the adjoining runs allow, so a short run between two
+  corners cannot be over-rounded into a different shape.
+- The self-test asserts the sharpest corner comes down, measured in degrees of heading change.
+
 ## [1.6.2]
 
 ### Fixed — turns cut the corner and clipped what the lanes run alongside

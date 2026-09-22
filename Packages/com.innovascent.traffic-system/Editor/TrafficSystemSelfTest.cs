@@ -72,6 +72,20 @@ namespace InnovAscent.TrafficSystem.EditorTools
             TrafficLaneDesigner.Finish();
             Check("Finish stops placement", !TrafficLaneDesigner.IsPlacing, "placing stopped");
 
+            // A lane drawn as straight runs meeting at a right angle asks for a turn of zero
+            // radius. The driver cannot steer that fast, so the body swings wide and clips whatever
+            // the lane runs beside. Rounding has to take the sharpest corner well down.
+            Transform laneRoot = manager.lanes[0].waypoints[0].parent;
+            float sharpestBefore = SharpestCorner(laneRoot);
+            int roundedCorners = TrafficLaneDesigner.RoundCorners(laneRoot, 3f);
+            float sharpestAfter = SharpestCorner(laneRoot);
+            TrafficLaneDesigner.RebuildLaneConfig(manager, "self_test", laneRoot);
+
+            Check("rounding softens the sharpest corner",
+                roundedCorners > 0 && sharpestAfter < sharpestBefore - 10f,
+                "corners rounded=" + roundedCorners +
+                ", sharpest " + sharpestBefore.ToString("F0") + "° -> " + sharpestAfter.ToString("F0") + "°");
+
             // Branching: a second lane to aim at, then several exits off one waypoint.
             // Laid across the first lane on purpose: the crossing checks further down need two
             // lanes that actually meet.
@@ -251,9 +265,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
             Object.DestroyImmediate(zoneObject);
             TrafficExclusionZone.Invalidate();
 
-            TrafficLaneDesigner.RemoveLane(manager, 2);
-            TrafficLaneDesigner.RemoveLane(manager, 1);
-            TrafficLaneDesigner.RemoveLane(manager, 0);
+            // Remove whatever is left: splitting at a zone can leave more lanes than were created.
+            while (manager.lanes.Length > 0) TrafficLaneDesigner.RemoveLane(manager, 0);
             Check("RemoveLane drops the lane", manager.lanes.Length == 0,
                 "lanes=" + manager.lanes.Length);
 
@@ -269,6 +282,24 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
         /// <summary>Report from the last run, for scripted checks.</summary>
         public static string LastReport { get; private set; }
+
+        /// <summary>Largest heading change at any interior waypoint, in degrees.</summary>
+        static float SharpestCorner(Transform root)
+        {
+            float sharpest = 0f;
+
+            for (int i = 1; i < root.childCount - 1; i++)
+            {
+                Vector3 a = root.GetChild(i).position - root.GetChild(i - 1).position;
+                Vector3 b = root.GetChild(i + 1).position - root.GetChild(i).position;
+                a.y = 0f; b.y = 0f;
+                if (a.sqrMagnitude < 0.001f || b.sqrMagnitude < 0.001f) continue;
+
+                sharpest = Mathf.Max(sharpest, Vector3.Angle(a, b));
+            }
+
+            return sharpest;
+        }
 
         static int CountWaypointsInsideZones(TrafficManager manager)
         {
