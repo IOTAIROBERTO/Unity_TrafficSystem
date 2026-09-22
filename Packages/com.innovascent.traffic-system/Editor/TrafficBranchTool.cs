@@ -206,8 +206,16 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 arriving.compatibleLaneIds = new[] { target.laneId };
             }
 
+            // Lanes built outside the lane designer carry no LaneDirection, and without one there
+            // is nothing to write the right of way onto: the merge would look wired and yield to
+            // nobody.
             var main = entry.GetComponent<LaneDirection>();
-            if (main == null) return;
+            if (main == null)
+            {
+                main = Undo.AddComponent<LaneDirection>(entry.gameObject);
+                main.laneId = target.laneId;
+                main.flowDirection = entry.forward;
+            }
 
             Undo.RecordObject(main, "Mark merge");
             main.zoneType = LaneDirection.ZoneType.Intersection;

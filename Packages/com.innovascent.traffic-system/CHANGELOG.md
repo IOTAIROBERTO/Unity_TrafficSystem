@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.2]
+
+### Fixed — marking a crossing did nothing on lanes built outside the lane designer
+- `MarkGiveWay` wrote the rule onto the waypoint's `LaneDirection` and returned quietly when there
+  was none. Lanes authored any other way carry no `LaneDirection` at all, so on a real layout of
+  266 waypoints every one of the 25 crossings reported itself marked in the UI and yielded to
+  nobody. The tool now adds the component, seeding its lane id and flow direction from the lane.
+- `TrafficBranchTool` skipped the same way when the waypoint a branch merges into had no
+  `LaneDirection`, leaving the merge wired but without a right of way. It adds one too.
+- **Branch** and **Add traffic light** were greyed out unless the selected object had a
+  `LaneDirection`, which on those scenes meant every waypoint. They now test membership of a lane
+  on the manager instead.
+
 ## [1.4.1]
 
 ### Fixed — the crossings list was unreadable

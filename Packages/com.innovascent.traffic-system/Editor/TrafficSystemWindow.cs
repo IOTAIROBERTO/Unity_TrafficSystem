@@ -183,7 +183,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 EditorStyles.wordWrappedMiniLabel);
 
             Transform selected = Selection.activeTransform;
-            bool isWaypoint = selected != null && selected.GetComponent<LaneDirection>() != null;
+            bool isWaypoint = IsLaneWaypoint(selected);
 
             if (!isWaypoint)
             {
@@ -439,6 +439,28 @@ namespace InnovAscent.TrafficSystem.EditorTools
             SceneView.RepaintAll();
         }
 
+        /// <summary>
+        /// Whether this transform is a waypoint of a lane on the manager. Membership rather than a
+        /// LaneDirection component, because lanes built outside the lane designer have none and
+        /// would otherwise leave every tool greyed out.
+        /// </summary>
+        bool IsLaneWaypoint(Transform candidate)
+        {
+            if (candidate == null || manager == null || manager.lanes == null) return false;
+            if (candidate.GetComponent<LaneDirection>() != null) return true;
+
+            foreach (LaneConfig lane in manager.lanes)
+            {
+                if (lane.waypoints == null) continue;
+                foreach (Transform waypoint in lane.waypoints)
+                {
+                    if (waypoint == candidate) return true;
+                }
+            }
+
+            return false;
+        }
+
         void DrawJunctionTool()
         {
             EditorGUILayout.LabelField("Junction", EditorStyles.boldLabel);
@@ -540,7 +562,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 EditorStyles.wordWrappedMiniLabel);
 
             Transform selected = Selection.activeTransform;
-            bool isWaypoint = selected != null && selected.GetComponent<LaneDirection>() != null;
+            bool isWaypoint = IsLaneWaypoint(selected);
 
             using (new EditorGUI.DisabledScope(!isWaypoint))
             {
