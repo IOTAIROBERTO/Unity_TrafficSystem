@@ -219,8 +219,12 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             Undo.RecordObject(main, "Mark merge");
             main.zoneType = LaneDirection.ZoneType.Intersection;
-            main.requiresYield = false;
-            main.priority = MainPriority;
+
+            // Having the right of way over this branch says nothing about the other crossings this
+            // waypoint sits on. Clearing an existing yield here silently undoes a give-way rule set
+            // for one of them, which leaves a junction where nobody stops.
+            if (!main.requiresYield) main.priority = MainPriority;
+            else main.priority = Mathf.Max(main.priority, MainPriority);
         }
 
         // ============================== DECISION ==============================

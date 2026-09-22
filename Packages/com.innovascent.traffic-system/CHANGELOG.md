@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.5.1]
+
+### Fixed — adding turns undid the give-way rules
+- Creating a turn marks the lane it merges into as having the right of way, and it cleared
+  `requiresYield` while doing so. Run after marking a scene, that silently undid the give-way rule
+  for every other crossing sharing the same waypoint: on a real layout, marking 28 crossings and
+  then adding turns left **16 of them with nobody yielding**.
+- A merge now raises the priority without clearing a yield already set, the same sticky rule the
+  crossing sweep uses. The self-test adds turns after marking and asserts no crossing is left
+  without someone yielding.
+
 ## [1.5.0]
 
 ### Added — turns and stops without a traffic light to render
