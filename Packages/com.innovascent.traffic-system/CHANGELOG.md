@@ -2,6 +2,20 @@
 
 ## [1.7.0]
 
+### Added — open out the corners of a lane
+- `TrafficLaneDesigner.OpenOutCorners` resamples a lane at an even spacing and relaxes it until no
+  point asks for a turn tighter than a given radius. `TightestRadius` reports what a lane asks for.
+- Turn rate, not the angle between waypoints, is the measure that matters: the same curve sampled
+  every 10 m reports a 15 m radius for a corner that is really 4.5 m, so a lane can look gentle and
+  still be undriveable. Both methods work in degrees per metre.
+- On a real warehouse this mattered: a forklift 3.24 m long was ending up 0.53 m inside the racking
+  at an aisle mouth, and the lanes there asked for radii of 1.1 m.
+
+### Changed — connectors are described with enough points to be a curve
+- A turn's connector was sampled every 6 m with a floor of two steps, so a short one was a single
+  interior point: a curve driven as two straight lines, which is what made turns look abrupt
+  however good the curve behind them was. Now every 2.5 m with a floor of four.
+
 ### Added — round the corners of a lane
 - `TrafficLaneDesigner.RoundCorners` replaces every sharp corner with an arc the vehicles can
   follow. A lane drawn as straight runs meeting at a right angle asks for a turn of zero radius:

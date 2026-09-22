@@ -25,8 +25,15 @@ namespace InnovAscent.TrafficSystem.EditorTools
         /// <summary>Priority of traffic arriving from the branch, which has to give way.</summary>
         const int BranchPriority = 7;
 
-        /// <summary>Roughly how far apart the connector's waypoints are, in metres.</summary>
-        const float ConnectorSpacing = 6f;
+        /// <summary>
+        /// Roughly how far apart the connector's waypoints are, in metres. A curve described by one
+        /// or two points is driven as a pair of straight lines, which is what makes a turn look
+        /// abrupt however good the curve behind it is.
+        /// </summary>
+        const float ConnectorSpacing = 2.5f;
+
+        /// <summary>Fewest waypoints a connector is described with, however short it is.</summary>
+        const int MinConnectorSteps = 4;
 
         /// <summary>
         /// How far along each heading the curve's control points sit, as a fraction of the gap.
@@ -146,7 +153,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
             Undo.RegisterCreatedObjectUndo(root, "Add branch");
             root.transform.SetParent(branchesRoot, false);
 
-            int steps = Mathf.Max(2, Mathf.RoundToInt(span / ConnectorSpacing));
+            int steps = Mathf.Max(MinConnectorSteps, Mathf.RoundToInt(span / ConnectorSpacing));
 
             // i starts at 1: the split waypoint itself is already on the source lane, and ends
             // before the entry, which already belongs to the target lane.

@@ -448,6 +448,125 @@ namespace InnovAscent.TrafficSystem.EditorTools
             return rounded;
         }
 
+        /// <summary>
+        /// Opens out the tight corners of a lane until a vehicle can actually follow it.
+        ///
+        /// Turn rate is what matters, not the angle between waypoints: the same curve sampled
+        /// coarsely shows a bigger angle per waypoint while being no harder to drive. This
+        /// resamples the run at an even spacing and then relaxes it until no point turns faster
+        /// than the given radius allows, which is measurable and independent of how it was drawn.
+        /// </summary>
+        /// <param name="minRadius">Tightest turn a vehicle should be asked to make, in metres.</param>
+        /// <param name="spacing">Spacing to resample the lane at, in metres.</param>
+        /// <returns>The tightest radius left on the lane, in metres.</returns>
+        public static float OpenOutCorners(Transform root, float minRadius = 3.5f, float spacing = 1f)
+        {
+            if (root == null || root.childCount < 3) return 999f;
+
+            var points = new List<Vector3>();
+            for (int i = 0; i < root.childCount; i++) points.Add(root.GetChild(i).position);
+
+            List<Vector3> path = Resample(points, spacing);
+            if (path.Count < 3) return 999f;
+
+            // Relaxation: pull each point toward the midpoint of its neighbours, which is exactly
+            // what reduces curvature. Endpoints stay put so the lane still starts and ends where it
+            // did, which is what keeps spawn and destroy points on their corners.
+            float limit = Mathf.Rad2Deg * spacing / Mathf.Max(0.1f, minRadius);
+            for (int pass = 0; pass < 60; pass++)
+            {
+                bool changed = false;
+
+                for (int i = 1; i < path.Count - 1; i++)
+                {
+                    Vector3 a = path[i] - path[i - 1];
+                    Vector3 b = path[i + 1] - path[i];
+                    a.y = 0f; b.y = 0f;
+                    if (a.sqrMagnitude < 0.0001f || b.sqrMagnitude < 0.0001f) continue;
+
+                    if (Vector3.Angle(a, b) <= limit) continue;
+
+                    path[i] = Vector3.Lerp(path[i], (path[i - 1] + path[i + 1]) * 0.5f, 0.5f);
+                    changed = true;
+                }
+
+                if (!changed) break;
+            }
+
+            string laneId = "";
+            var firstDirection = root.GetChild(0).GetComponent<LaneDirection>();
+            if (firstDirection != null) laneId = firstDirection.laneId;
+
+            for (int i = root.childCount - 1; i >= 0; i--) Undo.DestroyObjectImmediate(root.GetChild(i).gameObject);
+
+            // Lay it back down at a workable spacing rather than every sample.
+            Vector3 last = new Vector3(9999f, 0f, 9999f);
+            for (int i = 0; i < path.Count; i++)
+            {
+                bool endpoint = i == 0 || i == path.Count - 1;
+                if (!endpoint && Vector3.Distance(last, path[i]) < 1.8f) continue;
+                CreateWaypoint(root, path[i], laneId);
+                last = path[i];
+            }
+
+            OrientLane(root);
+            return TightestRadius(root);
+        }
+
+        /// <summary>Walks the run and drops a point every <paramref name="spacing"/> metres.</summary>
+        static List<Vector3> Resample(List<Vector3> points, float spacing)
+        {
+            var result = new List<Vector3>();
+            if (points.Count == 0) return result;
+
+            result.Add(points[0]);
+            float carry = 0f;
+
+            for (int i = 1; i < points.Count; i++)
+            {
+                Vector3 from = points[i - 1], to = points[i];
+                float length = Vector3.Distance(from, to);
+                if (length < 0.0001f) continue;
+
+                float travelled = spacing - carry;
+                while (travelled <= length)
+                {
+                    result.Add(Vector3.Lerp(from, to, travelled / length));
+                    travelled += spacing;
+                }
+
+                carry = length - (travelled - spacing);
+            }
+
+            if (Vector3.Distance(result[result.Count - 1], points[points.Count - 1]) > 0.01f)
+            {
+                result.Add(points[points.Count - 1]);
+            }
+
+            return result;
+        }
+
+        /// <summary>Tightest turn radius the lane asks for, in metres. Large means nearly straight.</summary>
+        public static float TightestRadius(Transform root)
+        {
+            float worstRate = 0f;
+
+            for (int i = 1; i < root.childCount - 1; i++)
+            {
+                Vector3 a = root.GetChild(i).position - root.GetChild(i - 1).position;
+                Vector3 b = root.GetChild(i + 1).position - root.GetChild(i).position;
+                a.y = 0f; b.y = 0f;
+
+                float la = a.magnitude, lb = b.magnitude;
+                if (la < 0.05f || lb < 0.05f) continue;
+
+                float rate = Vector3.Angle(a, b) / ((la + lb) * 0.5f);   // degrees per metre
+                worstRate = Mathf.Max(worstRate, rate);
+            }
+
+            return worstRate > 0.01f ? Mathf.Rad2Deg / worstRate : 999f;
+        }
+
         // ============================== HELPERS ==============================
 
         static Transform FindOrCreate(Transform parent, string name)
