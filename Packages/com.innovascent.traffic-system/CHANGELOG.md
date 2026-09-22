@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0]
+
+### Added — areas no route may enter
+- `TrafficExclusionZone`: a box placed over part of a site that traffic must stay out of — a
+  training area, a working bay, anywhere people stand. Part of a site is often not traffic at all,
+  and a generator that only knows about lanes routes straight through it.
+- Crossing detection ignores anything inside a zone, turn generation refuses a turn whose
+  connector would cut through one (checked along the run, not just at its ends), and **Trim lanes
+  out of them** cuts every lane back to its longest stretch outside, dropping any left with fewer
+  than two waypoints.
+- **No-traffic areas** in the Design tab adds and lists them; each is drawn in the Scene view as a
+  red box, so what is off limits is visible while authoring.
+- The rule survives regeneration: pressing *Turn at every crossing* again will not route back
+  through an area.
+
 ## [1.5.1]
 
 ### Fixed — adding turns undid the give-way rules

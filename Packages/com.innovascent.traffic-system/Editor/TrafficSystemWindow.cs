@@ -115,6 +115,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
             EditorGUILayout.Space(10f);
             DrawBranchTool();
             EditorGUILayout.Space(10f);
+            DrawExclusionZoneTool();
+            EditorGUILayout.Space(10f);
             DrawCrossingTool();
             EditorGUILayout.Space(10f);
             DrawJunctionTool();
@@ -522,6 +524,74 @@ namespace InnovAscent.TrafficSystem.EditorTools
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Areas no route may enter. Part of a site is often not traffic at all, and a generator
+        /// that only knows about lanes routes straight through it.
+        /// </summary>
+        void DrawExclusionZoneTool()
+        {
+            EditorGUILayout.LabelField("No-traffic areas", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Boxes no lane, crossing or turn may enter. Drag and scale one over a training area or a working bay, " +
+                "then trim: the generators leave it alone from then on.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            TrafficExclusionZone[] zones = FindObjectsByType<TrafficExclusionZone>(FindObjectsSortMode.None);
+            EditorGUILayout.LabelField($"{zones.Length} area(s) in the scene", EditorStyles.miniBoldLabel);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Add area here", GUILayout.Height(22f))) CreateExclusionZone();
+
+                using (new EditorGUI.DisabledScope(zones.Length == 0))
+                {
+                    if (GUILayout.Button("Trim lanes out of them", GUILayout.Height(22f)))
+                    {
+                        int changed = TrafficCrossingTool.TrimLanesOutsideZones(
+                            manager, out int waypoints, out int dropped);
+                        crossings = TrafficCrossingTool.Find(manager);
+                        SceneView.RepaintAll();
+                        Debug.Log($"[Traffic System] Trimmed {changed} lane(s): {waypoints} waypoint(s) removed, " +
+                                  $"{dropped} lane(s) left too short to keep.");
+                    }
+                }
+            }
+
+            foreach (TrafficExclusionZone zone in zones)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField(
+                        $"   {zone.name}  ({zone.transform.position.x:F0}, {zone.transform.position.z:F0})  " +
+                        $"{zone.size.x:F0} x {zone.size.z:F0} m", EditorStyles.miniLabel);
+
+                    if (GUILayout.Button("Select", GUILayout.Width(60f)))
+                    {
+                        Selection.activeGameObject = zone.gameObject;
+                        SceneView.FrameLastActiveSceneView();
+                    }
+                }
+            }
+        }
+
+        void CreateExclusionZone()
+        {
+            var go = new GameObject("No Traffic Area");
+            Undo.RegisterCreatedObjectUndo(go, "Add no-traffic area");
+            if (manager != null) go.transform.SetParent(manager.transform, true);
+
+            // Where the Scene view is looking, so it lands somewhere visible rather than at the origin.
+            SceneView view = SceneView.lastActiveSceneView;
+            go.transform.position = view != null ? view.pivot : Vector3.zero;
+
+            var zone = go.AddComponent<TrafficExclusionZone>();
+            zone.size = new Vector3(12f, 4f, 12f);
+
+            TrafficExclusionZone.Invalidate();
+            Selection.activeGameObject = go;
+            SceneView.RepaintAll();
         }
 
         void DrawJunctionTool()

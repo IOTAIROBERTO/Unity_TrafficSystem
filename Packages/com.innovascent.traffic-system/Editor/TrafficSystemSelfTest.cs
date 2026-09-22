@@ -184,6 +184,41 @@ namespace InnovAscent.TrafficSystem.EditorTools
             Check("adding turns does not undo the give-way rules", afterTurns == 0,
                 "crossings with nobody yielding after turns=" + afterTurns);
 
+            // A no-traffic area has to hold against the generators, not just be drawn.
+            var zoneObject = new GameObject("SelfTestNoTrafficArea");
+            zoneObject.transform.position = new Vector3(0f, 0f, 15f);
+            var zone = zoneObject.AddComponent<TrafficExclusionZone>();
+            zone.size = new Vector3(30f, 4f, 10f); // wide enough to swallow part of self_test_side
+            TrafficExclusionZone.Invalidate();
+
+            Check("a point inside the area is excluded",
+                TrafficExclusionZone.IsExcluded(new Vector3(0f, 0f, 15f)), "centre");
+            Check("a point outside it is not",
+                !TrafficExclusionZone.IsExcluded(new Vector3(0f, 0f, 40f)), "well clear");
+            Check("a run passing straight through is caught",
+                TrafficExclusionZone.SegmentEnters(new Vector3(0f, 0f, -10f), new Vector3(0f, 0f, 40f)),
+                "both ends outside, middle inside");
+
+            int insideBefore = CountWaypointsInsideZones(manager);
+
+            TrafficCrossingTool.TrimLanesOutsideZones(manager, out int removedWaypoints, out int _);
+
+            int insideAfter = CountWaypointsInsideZones(manager);
+
+            Check("trimming clears every waypoint out of the area",
+                insideBefore > 0 && insideAfter == 0,
+                "inside before=" + insideBefore + " after=" + insideAfter + " removed=" + removedWaypoints);
+
+            foreach (TrafficCrossingTool.Crossing c in TrafficCrossingTool.Find(manager))
+            {
+                if (!TrafficExclusionZone.IsExcluded(c.point)) continue;
+                Check("no crossing is reported inside the area", false, "at " + c.point);
+                break;
+            }
+
+            Object.DestroyImmediate(zoneObject);
+            TrafficExclusionZone.Invalidate();
+
             TrafficLaneDesigner.RemoveLane(manager, 2);
             TrafficLaneDesigner.RemoveLane(manager, 1);
             TrafficLaneDesigner.RemoveLane(manager, 0);
@@ -202,6 +237,22 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
         /// <summary>Report from the last run, for scripted checks.</summary>
         public static string LastReport { get; private set; }
+
+        static int CountWaypointsInsideZones(TrafficManager manager)
+        {
+            int count = 0;
+
+            foreach (LaneConfig config in manager.lanes)
+            {
+                if (config.waypoints == null) continue;
+                foreach (Transform point in config.waypoints)
+                {
+                    if (point != null && TrafficExclusionZone.IsExcluded(point.position)) count++;
+                }
+            }
+
+            return count;
+        }
 
         static string Describe(Dictionary<string, int> counts)
         {

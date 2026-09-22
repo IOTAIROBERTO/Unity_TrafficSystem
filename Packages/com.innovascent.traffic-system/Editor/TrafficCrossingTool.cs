@@ -80,6 +80,10 @@ namespace InnovAscent.TrafficSystem.EditorTools
                                          Mathf.RoundToInt(hit.y / ClusterSize);
                             if (!seen.Add(key)) continue;
 
+                            // A crossing inside an area that is off limits is not a junction to
+                            // manage, it is a place no route should be.
+                            if (TrafficExclusionZone.IsExcluded(new Vector3(hit.x, 0f, hit.y))) continue;
+
                             found.Add(new Crossing
                             {
                                 laneA = a,
@@ -270,12 +274,84 @@ namespace InnovAscent.TrafficSystem.EditorTools
                                                 FlowAt(manager, toLane, toIndex));
                     if (angle > maxTurnAngle) { skipped++; continue; }
 
+                    Transform source = WaypointAt(manager, fromLane, fromIndex);
+                    Transform entry = WaypointAt(manager, toLane, toIndex);
+                    if (source == null || entry == null) { skipped++; continue; }
+                    if (TrafficExclusionZone.SegmentEnters(source.position, entry.position)) { skipped++; continue; }
+
                     if (AddTurn(manager, crossing, fromAtoB, weight, out _)) added++;
                     else skipped++;
                 }
             }
 
             return added;
+        }
+
+        /// <summary>
+        /// Cuts every lane back so none runs through an exclusion zone. A lane that crosses one is
+        /// kept as its longest run of waypoints outside, and the waypoints inside are destroyed; a
+        /// lane left with fewer than two is removed entirely.
+        /// </summary>
+        /// <returns>How many lanes were changed.</returns>
+        public static int TrimLanesOutsideZones(TrafficManager manager, out int waypointsRemoved, out int lanesDropped)
+        {
+            waypointsRemoved = 0;
+            lanesDropped = 0;
+            int changed = 0;
+
+            TrafficExclusionZone.Invalidate();
+            var keep = new List<LaneConfig>();
+
+            foreach (LaneConfig lane in manager.lanes)
+            {
+                if (lane.waypoints == null || lane.waypoints.Length == 0) { keep.Add(lane); continue; }
+
+                // Longest stretch that stays outside. Keeping the longest run rather than the first
+                // means a lane clipped near one end survives as the useful part of itself.
+                int bestStart = -1, bestLength = 0, runStart = -1, runLength = 0;
+                for (int i = 0; i < lane.waypoints.Length; i++)
+                {
+                    bool inside = lane.waypoints[i] == null ||
+                                  TrafficExclusionZone.IsExcluded(lane.waypoints[i].position);
+
+                    if (inside) { runStart = -1; runLength = 0; continue; }
+
+                    if (runStart < 0) runStart = i;
+                    runLength++;
+                    if (runLength <= bestLength) continue;
+
+                    bestLength = runLength;
+                    bestStart = runStart;
+                }
+
+                if (bestLength == lane.waypoints.Length) { keep.Add(lane); continue; }
+
+                changed++;
+
+                for (int i = 0; i < lane.waypoints.Length; i++)
+                {
+                    if (i >= bestStart && i < bestStart + bestLength) continue;
+                    if (lane.waypoints[i] == null) continue;
+
+                    Undo.DestroyObjectImmediate(lane.waypoints[i].gameObject);
+                    waypointsRemoved++;
+                }
+
+                if (bestLength < 2) { lanesDropped++; continue; }
+
+                var kept = new Transform[bestLength];
+                for (int i = 0; i < bestLength; i++) kept[i] = lane.waypoints[bestStart + i];
+
+                lane.waypoints = kept;
+                lane.spawnPoint = kept[0];
+                lane.destroyPoints = new[] { kept[bestLength - 1] };
+                keep.Add(lane);
+            }
+
+            Undo.RecordObject(manager, "Trim lanes to exclusion zones");
+            manager.lanes = keep.ToArray();
+            MarkDirty();
+            return changed;
         }
 
         // ============================== HELPERS ==============================
