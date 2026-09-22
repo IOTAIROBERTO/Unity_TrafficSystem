@@ -57,6 +57,50 @@ namespace InnovAscent.TrafficSystem.EditorTools
             }
 
             DrawTrafficLights();
+            DrawBranches();
+        }
+
+        // ============================== BRANCHES ==============================
+
+        /// <summary>
+        /// Every split, drawn as one arrow per exit with the share of traffic that takes it, so the
+        /// route tree is readable without opening a single inspector.
+        /// </summary>
+        static void DrawBranches()
+        {
+            WaypointDecision[] decisions = Object.FindObjectsByType<WaypointDecision>(FindObjectsSortMode.None);
+
+            var style = new GUIStyle(EditorStyles.miniBoldLabel);
+            style.normal.textColor = new Color(1f, 0.85f, 0.3f);
+
+            foreach (WaypointDecision decision in decisions)
+            {
+                WaypointDecision.Branch[] branches = decision.ResolvedBranches;
+                if (branches.Length < 2) continue; // a single exit is just the lane carrying on
+
+                float total = 0f;
+                foreach (WaypointDecision.Branch b in branches) total += Mathf.Max(0f, b.weight);
+
+                Vector3 origin = decision.transform.position;
+                float size = HandleUtility.GetHandleSize(origin);
+
+                Handles.color = new Color(1f, 0.75f, 0.2f, 0.9f);
+                Handles.DrawWireDisc(origin, Vector3.up, size * 0.3f, 3f);
+
+                foreach (WaypointDecision.Branch branch in branches)
+                {
+                    if (branch.waypoints == null || branch.waypoints.Length == 0 || branch.waypoints[0] == null) continue;
+
+                    Vector3 target = branch.waypoints[0].position;
+                    float share = total > 0f ? Mathf.Max(0f, branch.weight) / total : 0f;
+
+                    Handles.color = new Color(1f, 0.75f, 0.2f, 0.55f + share * 0.45f);
+                    Handles.DrawLine(origin, target, 2f + share * 4f);
+
+                    Vector3 label = Vector3.Lerp(origin, target, 0.55f) + Vector3.up * size * 0.35f;
+                    Handles.Label(label, $"{branch.laneId} {share:P0}", style);
+                }
+            }
         }
 
         /// <summary>

@@ -9,11 +9,33 @@ namespace InnovAscent.TrafficSystem
     /// </summary>
     public class WaypointDecision : MonoBehaviour
     {
+        /// <summary>
+        /// One way out of this waypoint. Any number of these can hang off a single decision, which
+        /// is what lets a lane fan out into three, four or more without chaining decisions.
+        /// </summary>
+        [System.Serializable]
+        public class Branch
+        {
+            [Tooltip("Lane ID the vehicle adopts after taking this exit")]
+            public string laneId = "";
+
+            [Tooltip("Waypoints of this exit, starting with the one nearest this decision")]
+            public Transform[] waypoints;
+
+            [Tooltip("Relative likelihood of this exit. Weights are normalised against each other, so 2 is twice as likely as 1")]
+            [Min(0f)]
+            public float weight = 1f;
+        }
+
         [Header("=== IDENTIFICACIÓN ===")]
         [Tooltip("IDs de carriles que PUEDEN usar este waypoint de decisión")]
         public string[] laneIdsPermitidos;
 
-        [Header("=== CONFIGURACIÓN DE RUTAS ===")]
+        [Header("=== SALIDAS ===")]
+        [Tooltip("Salidas de este waypoint. Cualquier cantidad: 2, 3, 5...")]
+        public Branch[] branches;
+
+        [Header("=== CONFIGURACIÓN DE RUTAS (LEGACY) ===")]
         [Tooltip("Waypoints para continuar recto")]
         public Transform[] rutaRecto;
 
@@ -59,19 +81,84 @@ namespace InnovAscent.TrafficSystem
 
         // Cache
         private float totalProbabilidad;
+        private Branch[] resolvedBranches;
+        private float resolvedWeight;
 
         void Start()
         {
             ValidarConfiguracion();
             NormalizarProbabilidades();
+            EnsureBranches();
+        }
+
+        /// <summary>
+        /// Resolves the exits once. A decision authored before branches existed carries only the
+        /// three legacy arrays, so those are folded into branches here rather than migrated on
+        /// disk: the scene keeps working untouched and nothing has to be re-saved.
+        /// </summary>
+        void EnsureBranches()
+        {
+            if (resolvedBranches != null) return;
+
+            var list = new System.Collections.Generic.List<Branch>();
+
+            if (branches != null)
+            {
+                foreach (Branch b in branches)
+                {
+                    if (b != null && b.waypoints != null && b.waypoints.Length > 0) list.Add(b);
+                }
+            }
+
+            if (list.Count == 0)
+            {
+                AddLegacy(list, rutaRecto, laneIdRecto, probabilidadRecto);
+                AddLegacy(list, rutaDerecha, laneIdDerecha, probabilidadDerecha);
+                AddLegacy(list, rutaIzquierda, laneIdIzquierda, probabilidadIzquierda);
+            }
+
+            resolvedBranches = list.ToArray();
+            resolvedWeight = 0f;
+            foreach (Branch b in resolvedBranches) resolvedWeight += Mathf.Max(0f, b.weight);
+        }
+
+        static void AddLegacy(System.Collections.Generic.List<Branch> list, Transform[] waypoints, string laneId, float weight)
+        {
+            if (waypoints == null || waypoints.Length == 0) return;
+            list.Add(new Branch { laneId = laneId, waypoints = waypoints, weight = Mathf.Max(0f, weight) });
+        }
+
+        /// <summary>Exits actually available, legacy fields included. Empty only when nothing is wired.</summary>
+        public Branch[] ResolvedBranches
+        {
+            get { EnsureBranches(); return resolvedBranches; }
+        }
+
+        /// <summary>Picks an exit index by weight, or -1 when there is nothing to pick.</summary>
+        int PickWeightedIndex()
+        {
+            if (resolvedBranches.Length == 0) return -1;
+
+            // Every weight at zero still has to go somewhere, so fall back to a flat draw.
+            if (resolvedWeight <= 0f) return Random.Range(0, resolvedBranches.Length);
+
+            float roll = Random.value * resolvedWeight;
+            float cumulative = 0f;
+
+            for (int i = 0; i < resolvedBranches.Length; i++)
+            {
+                cumulative += Mathf.Max(0f, resolvedBranches[i].weight);
+                if (roll <= cumulative) return i;
+            }
+
+            return resolvedBranches.Length - 1;
         }
 
         void ValidarConfiguracion()
         {
             // Validar que al menos una ruta existe
-            bool tieneRutas = (rutaRecto != null && rutaRecto.Length > 0) || 
-                              (rutaDerecha != null && rutaDerecha.Length > 0) || 
-                              (rutaIzquierda != null && rutaIzquierda.Length > 0);
+            EnsureBranches();
+            bool tieneRutas = resolvedBranches.Length > 0;
 
             if (!tieneRutas)
             {
@@ -159,56 +246,34 @@ namespace InnovAscent.TrafficSystem
         /// </summary>
         public Transform[] GetRutaAleatoria(string vehicleLaneId, Vector3 posicionActual)
         {
-            // Verificar permiso
             if (!PuedeUsarEsteWaypoint(vehicleLaneId))
             {
                 TrafficLog.Warn($"[WaypointDecision] Vehículo con laneId '{vehicleLaneId}' no puede usar waypoint {gameObject.name}");
                 return null;
             }
 
-            // Generar número aleatorio
-            float random = Random.value;
-            float acumulado = 0f;
+            EnsureBranches();
 
-            // Intentar recto
-            acumulado += probabilidadRecto;
-            if (random <= acumulado && rutaRecto != null && rutaRecto.Length > 0)
+            if (resolvedBranches.Length == 0)
             {
-                if (ValidarContinuidadEspacial(posicionActual, rutaRecto[0]))
-                {
-                    TrafficLog.Info($"[WaypointDecision] Vehículo {vehicleLaneId} → RECTO (nuevo lane: {laneIdRecto})");
-                    return rutaRecto;
-                }
+                TrafficLog.Error($"[WaypointDecision] ❌ {gameObject.name} - no hay salidas configuradas");
+                return null;
             }
 
-            // Intentar derecha
-            acumulado += probabilidadDerecha;
-            if (random <= acumulado && rutaDerecha != null && rutaDerecha.Length > 0)
-            {
-                if (ValidarContinuidadEspacial(posicionActual, rutaDerecha[0]))
-                {
-                    TrafficLog.Info($"[WaypointDecision] Vehículo {vehicleLaneId} → DERECHA (nuevo lane: {laneIdDerecha})");
-                    return rutaDerecha;
-                }
-            }
+            // Draw one exit by weight, then walk the rest in order. Without the walk, a vehicle
+            // that draws an exit whose first waypoint is out of range would be left with no route
+            // at all, even though another exit was perfectly usable.
+            int first = PickWeightedIndex();
 
-            // Intentar izquierda
-            if (rutaIzquierda != null && rutaIzquierda.Length > 0)
+            for (int offset = 0; offset < resolvedBranches.Length; offset++)
             {
-                if (ValidarContinuidadEspacial(posicionActual, rutaIzquierda[0]))
-                {
-                    TrafficLog.Info($"[WaypointDecision] Vehículo {vehicleLaneId} → IZQUIERDA (nuevo lane: {laneIdIzquierda})");
-                    return rutaIzquierda;
-                }
-            }
+                Branch branch = resolvedBranches[(first + offset) % resolvedBranches.Length];
+                if (branch.waypoints == null || branch.waypoints.Length == 0) continue;
+                if (!ValidarContinuidadEspacial(posicionActual, branch.waypoints[0])) continue;
 
-            // Fallback: devolver primera ruta válida disponible
-            if (rutaRecto != null && rutaRecto.Length > 0 && ValidarContinuidadEspacial(posicionActual, rutaRecto[0]))
-                return rutaRecto;
-            if (rutaDerecha != null && rutaDerecha.Length > 0 && ValidarContinuidadEspacial(posicionActual, rutaDerecha[0]))
-                return rutaDerecha;
-            if (rutaIzquierda != null && rutaIzquierda.Length > 0 && ValidarContinuidadEspacial(posicionActual, rutaIzquierda[0]))
-                return rutaIzquierda;
+                TrafficLog.Info($"[WaypointDecision] Vehículo {vehicleLaneId} → salida '{branch.laneId}'");
+                return branch.waypoints;
+            }
 
             TrafficLog.Error($"[WaypointDecision] ❌ {gameObject.name} - No se pudo obtener ninguna ruta válida para vehículo {vehicleLaneId}");
             return null;
@@ -239,9 +304,12 @@ namespace InnovAscent.TrafficSystem
         /// </summary>
         public string GetNuevoLaneId(Transform[] rutaElegida)
         {
-            if (rutaElegida == rutaRecto) return laneIdRecto;
-            if (rutaElegida == rutaDerecha) return laneIdDerecha;
-            if (rutaElegida == rutaIzquierda) return laneIdIzquierda;
+            EnsureBranches();
+
+            foreach (Branch branch in resolvedBranches)
+            {
+                if (ReferenceEquals(branch.waypoints, rutaElegida)) return branch.laneId;
+            }
 
             return ""; // Sin cambio
         }
@@ -251,11 +319,8 @@ namespace InnovAscent.TrafficSystem
         /// </summary>
         public bool TieneMultiplesOpciones()
         {
-            int opciones = 0;
-            if (rutaRecto != null && rutaRecto.Length > 0) opciones++;
-            if (rutaDerecha != null && rutaDerecha.Length > 0) opciones++;
-            if (rutaIzquierda != null && rutaIzquierda.Length > 0) opciones++;
-            return opciones > 1;
+            EnsureBranches();
+            return resolvedBranches.Length > 1;
         }
 
         // ============ VISUALIZACIÓN DEBUG ============
