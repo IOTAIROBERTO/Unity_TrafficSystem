@@ -365,8 +365,24 @@ namespace InnovAscent.TrafficSystem.EditorTools
             // luzRoja, luzAmarilla and luzVerde stay null on purpose: every use of them in
             // TrafficLightController is null-guarded, so the stop works with nothing to render.
 
+            // Every stop added with the defaults starts red on the same frame, which halts the whole
+            // site at once and then releases it at once. Spreading the phase by where the stop sits
+            // keeps that from happening, and using the position rather than a counter means adding a
+            // stop later does not re-shuffle the ones already placed.
+            Vector3 p = controlledWaypoint.position;
+            float cycle = Mathf.Max(1f, CycleLength(target));
+            light.desfaseInicial = Mathf.Repeat(p.x * 0.37f + p.z * 0.61f, cycle);
+            light.empezarEnVerde = light.desfaseInicial < cycle * 0.5f;
+
             MarkDirty();
             return light;
+        }
+
+        /// <summary>Full red-amber-green period of the site's lights, in seconds.</summary>
+        static float CycleLength(TrafficManager target)
+        {
+            if (target == null || target.config == null) return 20f;
+            return target.config.tiempoVerdeSemaforo + target.config.tiempoRojoSemaforo + 2f;
         }
 
         /// <summary>

@@ -30,6 +30,11 @@ namespace InnovAscent.TrafficSystem
         [Header("Estado Inicial")]
         public bool empezarEnVerde = false;
 
+        [Tooltip("Seconds to advance this light's cycle at startup. Without it every light on a " +
+                 "site changes on the same frame, so all traffic stops at once and then all moves " +
+                 "at once. Give neighbouring stops different offsets to spread the waiting out.")]
+        public float desfaseInicial = 0f;
+
         // Estado interno - ✅ AGREGADO ESTADO APAGADO
         private enum EstadoSemaforo { Rojo, Amarillo, Verde, Apagado }
         private EstadoSemaforo estadoActual;
@@ -42,6 +47,7 @@ namespace InnovAscent.TrafficSystem
         {
             // Estado inicial
             estadoActual = empezarEnVerde ? EstadoSemaforo.Verde : EstadoSemaforo.Rojo;
+            timer = Mathf.Max(0f, desfaseInicial);
 
             // Registrar con el TrafficManager
             if (TrafficManager.Instance != null && waypointControlado != null)
