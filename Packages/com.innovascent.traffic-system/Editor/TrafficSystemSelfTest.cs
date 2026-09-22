@@ -73,8 +73,16 @@ namespace InnovAscent.TrafficSystem.EditorTools
             Check("Finish stops placement", !TrafficLaneDesigner.IsPlacing, "placing stopped");
 
             // Branching: a second lane to aim at, then several exits off one waypoint.
+            // Laid across the first lane on purpose: the crossing checks further down need two
+            // lanes that actually meet.
             TrafficLaneDesigner.BeginLane(manager, "self_test_side");
-            foreach (Vector3 p in new[] { new Vector3(30f, 0f, 20f), new Vector3(40f, 0f, 30f), new Vector3(50f, 0f, 40f) })
+            foreach (Vector3 p in new[]
+            {
+                new Vector3(-20f, 0f, 15f),
+                new Vector3(-10f, 0f, 15f),
+                new Vector3(10f, 0f, 15f),
+                new Vector3(20f, 0f, 15f),
+            })
             {
                 TrafficLaneDesigner.AddWaypoint(p);
             }
@@ -106,6 +114,34 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 int straight = taken.TryGetValue("self_test", out int t) ? t : 0;
                 Check("weight 2 sends about twice as many down the exit", side > straight,
                     "exit=" + side + " carry on=" + straight);
+            }
+
+            // Crossing detection and the give-way rule. Vehicle compares priorities with
+            // "other.priority <= mine", so the lane with the right of way must carry the LOWER
+            // number. Getting that backwards leaves requiresYield set and nobody ever stopping,
+            // which is invisible until two vehicles occupy the same metre.
+            List<TrafficCrossingTool.Crossing> found = TrafficCrossingTool.Find(manager);
+            Check("crossing between the two lanes is found", found.Count > 0, "crossings=" + found.Count);
+
+            if (found.Count > 0)
+            {
+                TrafficCrossingTool.Crossing crossing = found[0];
+                TrafficCrossingTool.MarkGiveWay(manager, crossing, true);
+
+                Check("both sides know they are in an intersection",
+                    TrafficCrossingTool.IsMarked(manager, crossing), "marked");
+
+                var mainDir = TrafficCrossingTool.WaypointAt(manager, crossing.laneA, crossing.indexA)
+                    .GetComponent<LaneDirection>();
+                var sideDir = TrafficCrossingTool.WaypointAt(manager, crossing.laneB, crossing.indexB)
+                    .GetComponent<LaneDirection>();
+
+                Check("the side lane is the one that yields",
+                    sideDir.requiresYield && !mainDir.requiresYield,
+                    "side=" + sideDir.requiresYield + " main=" + mainDir.requiresYield);
+                Check("right of way carries the lower priority number",
+                    mainDir.priority < sideDir.priority,
+                    "main=" + mainDir.priority + " side=" + sideDir.priority);
             }
 
             TrafficLaneDesigner.RemoveLane(manager, 1);

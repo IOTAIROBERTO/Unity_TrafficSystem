@@ -15,11 +15,15 @@ namespace InnovAscent.TrafficSystem.EditorTools
     /// </summary>
     public static class TrafficBranchTool
     {
-        /// <summary>Priority given to the lane being merged into.</summary>
-        const int MainPriority = 8;
+        // Vehicle compares priorities with "other.priority <= mine", so a LOWER number is the
+        // stronger claim. The sample builder uses the same scale: 3 for the through route, 7 for
+        // the arm that yields to it.
 
-        /// <summary>Priority given to traffic arriving from the branch, which has to give way.</summary>
-        const int BranchPriority = 2;
+        /// <summary>Priority of the lane being merged into. Lower wins, so this is the strong one.</summary>
+        const int MainPriority = 3;
+
+        /// <summary>Priority of traffic arriving from the branch, which has to give way.</summary>
+        const int BranchPriority = 7;
 
         /// <summary>Roughly how far apart the connector's waypoints are, in metres.</summary>
         const float ConnectorSpacing = 6f;

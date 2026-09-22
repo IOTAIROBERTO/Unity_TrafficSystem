@@ -191,6 +191,26 @@ Two things worth knowing:
 - Decisions authored before branches existed keep working untouched. Their three legacy routes are
   folded into exits at load, so nothing has to be re-saved.
 
+## Crossings between lanes drawn by hand
+
+Lanes drawn separately cross each other at points nobody recorded. Traffic runs straight through
+them, so two vehicles arriving at the same metre have nothing telling them who waits.
+
+**Crossings** in the Design tab finds every one of them. **Scan** lists each pair of lanes that
+meet and marks them in the Scene view: red where nobody gives way, green where the rule is set.
+Per crossing you get:
+
+- **'lane' has priority** — sets the give-way rule. The lane with the right of way keeps
+  `zoneType = Intersection` without yielding, the other one gets `requiresYield`.
+- **Turn A → B** — lets traffic change lane there, built with the same connector as **Branch**.
+
+**Give way at every crossing** does the lot in one press, taking the lane with more waypoints as
+the main one. That is a guess worth correcting per crossing, not an answer.
+
+Priorities run the other way round from what you might expect: `Vehicle` compares them with
+`other.priority <= mine`, so **the lower number is the stronger claim**. The tools write 3 for the
+right of way and 7 for the lane that yields, the same scale the sample scene uses.
+
 ## Manual setup
 
 1. Create a physics layer for vehicles (`Edit > Project Settings > Tags and Layers`).
