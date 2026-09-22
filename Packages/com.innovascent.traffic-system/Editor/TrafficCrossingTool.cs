@@ -155,29 +155,51 @@ namespace InnovAscent.TrafficSystem.EditorTools
         /// Decides who stops. The main lane keeps the right of way and the other one yields, which
         /// is what <see cref="Vehicle"/> reads when it finds itself inside an intersection.
         /// </summary>
-        public static void MarkGiveWay(TrafficManager manager, Crossing crossing, bool laneAIsMain)
+        /// <param name="accumulate">
+        /// True while marking a whole scene: a waypoint can sit on several crossings, and one that
+        /// already has to give way somewhere must keep doing so. Without this the last crossing
+        /// written wins and clears an earlier yield, leaving a junction where nobody stops.
+        /// False when the user picks the rule for one crossing, where the choice is meant to win.
+        /// </param>
+        public static void MarkGiveWay(TrafficManager manager, Crossing crossing, bool laneAIsMain,
+                                       bool accumulate = false)
         {
             int mainLane = laneAIsMain ? crossing.laneA : crossing.laneB;
             int mainIndex = laneAIsMain ? crossing.indexA : crossing.indexB;
             int sideLane = laneAIsMain ? crossing.laneB : crossing.laneA;
             int sideIndex = laneAIsMain ? crossing.indexB : crossing.indexA;
 
-            Apply(manager, mainLane, mainIndex, false, MainPriority, manager.lanes[sideLane].laneId);
-            Apply(manager, sideLane, sideIndex, true, GiveWayPriority, manager.lanes[mainLane].laneId);
+            Apply(manager, mainLane, mainIndex, false, MainPriority, manager.lanes[sideLane].laneId, accumulate);
+            Apply(manager, sideLane, sideIndex, true, GiveWayPriority, manager.lanes[mainLane].laneId, accumulate);
             MarkDirty();
         }
 
-        static void Apply(TrafficManager manager, int lane, int index, bool yields, int priority, string otherLaneId)
+        static void Apply(TrafficManager manager, int lane, int index, bool yields, int priority,
+                          string otherLaneId, bool accumulate)
         {
             LaneDirection direction = EnsureDirection(manager, lane, index);
             if (direction == null) return;
 
             Undo.RecordObject(direction, "Mark crossing");
             direction.zoneType = LaneDirection.ZoneType.Intersection;
-            direction.requiresYield = yields;
-            direction.priority = priority;
-            direction.compatibleLaneIds = new[] { otherLaneId };
+
+            // Giving way is sticky while marking a scene: having the right of way over one lane
+            // says nothing about the other crossing this same waypoint sits on.
+            bool keepsYield = accumulate && direction.requiresYield;
+            direction.requiresYield = yields || keepsYield;
+            direction.priority = keepsYield ? Mathf.Max(direction.priority, priority) : priority;
+
+            direction.compatibleLaneIds = MergeLaneIds(accumulate ? direction.compatibleLaneIds : null, otherLaneId);
             EditorUtility.SetDirty(direction);
+        }
+
+        /// <summary>Keeps the lanes a waypoint already had to cooperate with, and adds one more.</summary>
+        static string[] MergeLaneIds(string[] existing, string laneId)
+        {
+            var ids = new List<string>();
+            if (existing != null) ids.AddRange(existing);
+            if (!ids.Contains(laneId)) ids.Add(laneId);
+            return ids.ToArray();
         }
 
         /// <summary>
@@ -193,7 +215,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
             {
                 int lengthA = manager.lanes[crossing.laneA].waypoints.Length;
                 int lengthB = manager.lanes[crossing.laneB].waypoints.Length;
-                MarkGiveWay(manager, crossing, lengthA >= lengthB);
+                MarkGiveWay(manager, crossing, lengthA >= lengthB, accumulate: true);
             }
 
             return crossings.Count;

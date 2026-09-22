@@ -144,6 +144,31 @@ namespace InnovAscent.TrafficSystem.EditorTools
                     "main=" + mainDir.priority + " side=" + sideDir.priority);
             }
 
+            // A waypoint can sit on more than one crossing. Marking the scene must not let a later
+            // crossing clear a yield an earlier one set, which would leave a junction where nobody
+            // stops while every crossing still reports itself marked.
+            TrafficLaneDesigner.BeginLane(manager, "self_test_third");
+            foreach (Vector3 p in new[] { new Vector3(5f, 0f, -20f), new Vector3(5f, 0f, 40f) })
+            {
+                TrafficLaneDesigner.AddWaypoint(p);
+            }
+            TrafficLaneDesigner.Finish();
+
+            TrafficCrossingTool.MarkAll(manager);
+
+            List<TrafficCrossingTool.Crossing> all = TrafficCrossingTool.Find(manager);
+            int nobodyYields = 0;
+            foreach (TrafficCrossingTool.Crossing c in all)
+            {
+                var dirA = TrafficCrossingTool.WaypointAt(manager, c.laneA, c.indexA).GetComponent<LaneDirection>();
+                var dirB = TrafficCrossingTool.WaypointAt(manager, c.laneB, c.indexB).GetComponent<LaneDirection>();
+                if (dirA != null && dirB != null && !dirA.requiresYield && !dirB.requiresYield) nobodyYields++;
+            }
+
+            Check("marking the scene leaves somebody yielding at every crossing", nobodyYields == 0,
+                "crossings=" + all.Count + " with nobody yielding=" + nobodyYields);
+
+            TrafficLaneDesigner.RemoveLane(manager, 2);
             TrafficLaneDesigner.RemoveLane(manager, 1);
             TrafficLaneDesigner.RemoveLane(manager, 0);
             Check("RemoveLane drops the lane", manager.lanes.Length == 0,
