@@ -20,6 +20,11 @@ namespace InnovAscent.TrafficSystem
         [Tooltip("Why this area is off limits. Shown in the Scene view.")]
         public string reason = "";
 
+        [Tooltip("Only stop turns being built through here, and leave the lanes themselves alone. " +
+                 "Use it where two lanes legitimately run past a corner that a vehicle cannot " +
+                 "actually swing through: a full zone would trim the lanes as well.")]
+        public bool soloBloqueaGiros = false;
+
         /// <summary>True when the world point falls inside this box.</summary>
         public bool Contains(Vector3 worldPoint)
         {
@@ -49,14 +54,31 @@ namespace InnovAscent.TrafficSystem
             return cache;
         }
 
-        /// <summary>True when any zone covers this point.</summary>
+        /// <summary>True when a zone that bans traffic outright covers this point.</summary>
         public static bool IsExcluded(Vector3 worldPoint)
+        {
+            return CoveredBy(worldPoint, false);
+        }
+
+        /// <summary>
+        /// True when any zone covers this point, including the ones that only stop turns. This is
+        /// the test a turn generator wants: a lane may legitimately run past a corner that a
+        /// vehicle still cannot swing through.
+        /// </summary>
+        public static bool BlocksTurns(Vector3 worldPoint)
+        {
+            return CoveredBy(worldPoint, true);
+        }
+
+        static bool CoveredBy(Vector3 worldPoint, bool includeTurnOnly)
         {
             List<TrafficExclusionZone> zones = All();
 
             for (int i = 0; i < zones.Count; i++)
             {
-                if (zones[i] != null && zones[i].isActiveAndEnabled && zones[i].Contains(worldPoint)) return true;
+                if (zones[i] == null || !zones[i].isActiveAndEnabled) continue;
+                if (!includeTurnOnly && zones[i].soloBloqueaGiros) continue;
+                if (zones[i].Contains(worldPoint)) return true;
             }
 
             return false;
@@ -68,14 +90,14 @@ namespace InnovAscent.TrafficSystem
         /// </summary>
         public static bool SegmentEnters(Vector3 from, Vector3 to, float step = 1f)
         {
-            if (IsExcluded(from) || IsExcluded(to)) return true;
+            if (BlocksTurns(from) || BlocksTurns(to)) return true;
 
             float distance = Vector3.Distance(from, to);
             int samples = Mathf.Clamp(Mathf.CeilToInt(distance / Mathf.Max(0.25f, step)), 1, 200);
 
             for (int i = 1; i < samples; i++)
             {
-                if (IsExcluded(Vector3.Lerp(from, to, (float)i / samples))) return true;
+                if (BlocksTurns(Vector3.Lerp(from, to, (float)i / samples))) return true;
             }
 
             return false;
@@ -92,10 +114,12 @@ namespace InnovAscent.TrafficSystem
         {
             Gizmos.matrix = transform.localToWorldMatrix;
 
-            Gizmos.color = new Color(1f, 0.3f, 0.25f, 0.12f);
+            Color tint = soloBloqueaGiros ? new Color(1f, 0.75f, 0.2f) : new Color(1f, 0.3f, 0.25f);
+
+            Gizmos.color = new Color(tint.r, tint.g, tint.b, 0.12f);
             Gizmos.DrawCube(Vector3.zero, size);
 
-            Gizmos.color = new Color(1f, 0.3f, 0.25f, 0.9f);
+            Gizmos.color = new Color(tint.r, tint.g, tint.b, 0.9f);
             Gizmos.DrawWireCube(Vector3.zero, size);
         }
     }
