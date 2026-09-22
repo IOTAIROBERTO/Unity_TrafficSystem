@@ -74,17 +74,30 @@ namespace InnovAscent.TrafficSystem.EditorTools
         {
             if (!ShowCrossings) return;
 
+            var label = new GUIStyle(EditorStyles.miniBoldLabel);
+
             foreach (TrafficCrossingTool.Crossing crossing in TrafficCrossingTool.Find(manager))
             {
                 bool marked = TrafficCrossingTool.IsMarked(manager, crossing);
-                float size = HandleUtility.GetHandleSize(crossing.point);
 
-                Handles.color = marked
-                    ? new Color(0.3f, 0.95f, 0.4f, 0.9f)
-                    : new Color(1f, 0.25f, 0.2f, 0.9f);
+                // A marker scaled purely by handle size disappears when the whole layout is in
+                // view, which is exactly when these are being looked for. Keep a floor in metres.
+                float radius = Mathf.Max(2.5f, HandleUtility.GetHandleSize(crossing.point) * 0.5f);
 
-                Handles.DrawWireDisc(crossing.point, Vector3.up, size * 0.5f, 3f);
-                if (!marked) Handles.DrawWireDisc(crossing.point, Vector3.up, size * 0.35f, 2f);
+                Color colour = marked
+                    ? new Color(0.3f, 0.95f, 0.4f, 1f)
+                    : new Color(1f, 0.25f, 0.2f, 1f);
+
+                Handles.color = new Color(colour.r, colour.g, colour.b, 0.18f);
+                Handles.DrawSolidDisc(crossing.point, Vector3.up, radius);
+
+                Handles.color = colour;
+                Handles.DrawWireDisc(crossing.point, Vector3.up, radius, 4f);
+                if (!marked) Handles.DrawWireDisc(crossing.point, Vector3.up, radius * 0.6f, 3f);
+
+                label.normal.textColor = colour;
+                Handles.Label(crossing.point + Vector3.up * (radius * 0.6f),
+                    $"{manager.lanes[crossing.laneA].laneId} × {manager.lanes[crossing.laneB].laneId}", label);
             }
         }
 

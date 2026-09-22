@@ -257,6 +257,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
         List<TrafficCrossingTool.Crossing> crossings;
         Vector2 crossingScroll;
         float crossingTurnWeight = 1f;
+        float crossingListHeight = 320f;
+        int selectedCrossing = -1;
 
         /// <summary>
         /// Lanes drawn by hand cross each other at points nobody recorded. This lists them and
@@ -320,52 +322,97 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 EditorStyles.miniBoldLabel);
 
             crossingTurnWeight = EditorGUILayout.Slider("Turn weight", crossingTurnWeight, 0.1f, 5f);
+            crossingListHeight = EditorGUILayout.Slider("List height", crossingListHeight, 120f, 600f);
 
-            crossingScroll = EditorGUILayout.BeginScrollView(crossingScroll, GUILayout.MaxHeight(260f));
+            // One line per crossing so a long list stays scannable; the buttons live in a panel
+            // below, for the one that is selected. Fitting four buttons on every row made each
+            // entry three lines tall and the list unreadable past the first few.
+            crossingScroll = EditorGUILayout.BeginScrollView(crossingScroll, GUILayout.Height(crossingListHeight));
             for (int i = 0; i < crossings.Count; i++)
             {
                 DrawCrossingRow(crossings[i], i);
             }
             EditorGUILayout.EndScrollView();
+
+            EditorGUILayout.Space(6f);
+            DrawSelectedCrossing();
         }
 
+        /// <summary>One compact line: state, the lanes, where it is, and a button to select it.</summary>
         void DrawCrossingRow(TrafficCrossingTool.Crossing crossing, int index)
         {
-            string idA = manager.lanes[crossing.laneA].laneId;
-            string idB = manager.lanes[crossing.laneB].laneId;
             bool marked = TrafficCrossingTool.IsMarked(manager, crossing);
             bool turns = TrafficCrossingTool.HasTurn(manager, crossing);
+            bool selected = index == selectedCrossing;
+
+            string idA = manager.lanes[crossing.laneA].laneId;
+            string idB = manager.lanes[crossing.laneB].laneId;
+            string mark = marked ? (turns ? "◆" : "●") : "○";
+
+            var style = new GUIStyle(selected ? EditorStyles.helpBox : GUIStyle.none);
+
+            using (new EditorGUILayout.HorizontalScope(style))
+            {
+                var label = new GUIStyle(EditorStyles.label);
+                label.normal.textColor = marked
+                    ? new Color(0.45f, 0.9f, 0.5f)
+                    : new Color(1f, 0.5f, 0.45f);
+                if (selected) label.fontStyle = FontStyle.Bold;
+
+                EditorGUILayout.LabelField($"{mark}  {idA}  ×  {idB}", label);
+                EditorGUILayout.LabelField($"({crossing.point.x:F0}, {crossing.point.z:F0})",
+                    EditorStyles.miniLabel, GUILayout.Width(80f));
+
+                if (GUILayout.Button(selected ? "Selected" : "Select", GUILayout.Width(70f)))
+                {
+                    selectedCrossing = index;
+                    FrameCrossing(crossing);
+                }
+            }
+        }
+
+        /// <summary>The buttons for whichever crossing is selected, with room to read them.</summary>
+        void DrawSelectedCrossing()
+        {
+            if (selectedCrossing < 0 || selectedCrossing >= crossings.Count)
+            {
+                EditorGUILayout.HelpBox("Select a crossing above to set who gives way, or to add a turn.",
+                    MessageType.None);
+                return;
+            }
+
+            TrafficCrossingTool.Crossing crossing = crossings[selectedCrossing];
+            string idA = manager.lanes[crossing.laneA].laneId;
+            string idB = manager.lanes[crossing.laneB].laneId;
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
+                EditorGUILayout.LabelField($"{idA}  ×  {idB}    ({crossing.point.x:F0}, {crossing.point.z:F0})",
+                    EditorStyles.boldLabel);
+
+                bool marked = TrafficCrossingTool.IsMarked(manager, crossing);
+                EditorGUILayout.LabelField(
+                    marked ? "Give way is set. Lower priority number wins." : "Nobody gives way here yet.",
+                    EditorStyles.miniLabel);
+
+                EditorGUILayout.Space(4f);
+                EditorGUILayout.LabelField("Who has the right of way", EditorStyles.miniBoldLabel);
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    string state = marked ? (turns ? "give way + turn" : "give way") : "nothing set";
-                    EditorGUILayout.LabelField($"{idA}  ×  {idB}", EditorStyles.miniBoldLabel);
-                    EditorGUILayout.LabelField(state, EditorStyles.miniLabel, GUILayout.Width(110f));
-
-                    if (GUILayout.Button("Show", GUILayout.Width(50f)))
-                    {
-                        Transform w = TrafficCrossingTool.WaypointAt(manager, crossing.laneA, crossing.indexA);
-                        if (w != null)
-                        {
-                            Selection.activeGameObject = w.gameObject;
-                            SceneView.FrameLastActiveSceneView();
-                        }
-                    }
+                    if (GUILayout.Button(idA, GUILayout.Height(26f))) TrafficCrossingTool.MarkGiveWay(manager, crossing, true);
+                    if (GUILayout.Button(idB, GUILayout.Height(26f))) TrafficCrossingTool.MarkGiveWay(manager, crossing, false);
                 }
 
+                EditorGUILayout.Space(4f);
+                EditorGUILayout.LabelField("Let traffic turn here", EditorStyles.miniBoldLabel);
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button($"'{idA}' has priority")) TrafficCrossingTool.MarkGiveWay(manager, crossing, true);
-                    if (GUILayout.Button($"'{idB}' has priority")) TrafficCrossingTool.MarkGiveWay(manager, crossing, false);
+                    if (GUILayout.Button($"{idA} → {idB}", GUILayout.Height(26f))) AddCrossingTurn(crossing, true);
+                    if (GUILayout.Button($"{idB} → {idA}", GUILayout.Height(26f))) AddCrossingTurn(crossing, false);
                 }
 
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button($"Turn {idA} → {idB}")) AddCrossingTurn(crossing, true);
-                    if (GUILayout.Button($"Turn {idB} → {idA}")) AddCrossingTurn(crossing, false);
-                }
+                EditorGUILayout.Space(4f);
+                if (GUILayout.Button("Frame it in the Scene view")) FrameCrossing(crossing);
             }
         }
 
@@ -380,6 +427,16 @@ namespace InnovAscent.TrafficSystem.EditorTools
             {
                 EditorUtility.DisplayDialog("Traffic System", error, "OK");
             }
+        }
+
+        void FrameCrossing(TrafficCrossingTool.Crossing crossing)
+        {
+            Transform waypoint = TrafficCrossingTool.WaypointAt(manager, crossing.laneA, crossing.indexA);
+            if (waypoint == null) return;
+
+            Selection.activeGameObject = waypoint.gameObject;
+            SceneView.FrameLastActiveSceneView();
+            SceneView.RepaintAll();
         }
 
         void DrawJunctionTool()

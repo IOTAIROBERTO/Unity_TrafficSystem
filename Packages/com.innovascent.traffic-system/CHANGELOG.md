@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.1]
+
+### Fixed — the crossings list was unreadable
+- Every crossing drew four buttons on its own row, so each entry was three lines tall inside a
+  260 px box: past the first few there was nothing to see and nothing to click. The list is now
+  one line per crossing — state, the two lanes, the coordinates and a Select — with the buttons in
+  a panel underneath for whichever one is selected. The panel's buttons are 26 px tall.
+- The list height is adjustable from 120 to 600 px, and the selected row is highlighted.
+- Crossing markers in the Scene view were scaled purely by handle size, so they shrank to nothing
+  at the zoom where a whole layout fits on screen, which is exactly when they are being looked
+  for. They now have a 2.5 m floor, a filled centre and a label naming the two lanes.
+
 ## [1.4.0]
 
 ### Fixed — the give-way priority was written upside down
