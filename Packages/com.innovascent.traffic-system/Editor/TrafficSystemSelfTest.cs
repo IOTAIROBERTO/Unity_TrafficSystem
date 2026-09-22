@@ -286,6 +286,26 @@ namespace InnovAscent.TrafficSystem.EditorTools
                 TrafficExclusionZone.SegmentEnters(new Vector3(0f, 0f, -10f), new Vector3(0f, 0f, 40f)),
                 "both ends outside, middle inside");
 
+            // A turn-only zone has to read as clear for the lanes and as blocked for a connector,
+            // otherwise the only way to stop an impossible turn is to trim the lanes that use it.
+            var turnOnlyObject = new GameObject("Self test turn-only zone");
+            Undo.RegisterCreatedObjectUndo(turnOnlyObject, "Self test");
+            turnOnlyObject.transform.position = new Vector3(60f, 0f, 0f);
+            var turnOnly = turnOnlyObject.AddComponent<TrafficExclusionZone>();
+            turnOnly.size = new Vector3(10f, 4f, 10f);
+            turnOnly.soloBloqueaGiros = true;
+            TrafficExclusionZone.Invalidate();
+
+            Check("a turn-only area does not exclude the lane running through it",
+                !TrafficExclusionZone.IsExcluded(new Vector3(60f, 0f, 0f)), "lane is left alone");
+            Check("a turn-only area still stops a turn being built through it",
+                TrafficExclusionZone.BlocksTurns(new Vector3(60f, 0f, 0f))
+                && TrafficExclusionZone.SegmentEnters(new Vector3(50f, 0f, 0f), new Vector3(70f, 0f, 0f)),
+                "connector is refused");
+
+            Undo.DestroyObjectImmediate(turnOnlyObject);
+            TrafficExclusionZone.Invalidate();
+
             int insideBefore = CountWaypointsInsideZones(manager);
 
             TrafficCrossingTool.TrimLanesOutsideZones(manager, out int removedWaypoints, out int _);
