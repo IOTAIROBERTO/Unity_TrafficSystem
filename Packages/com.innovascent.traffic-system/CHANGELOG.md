@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.2]
+
+### Fixed — turns cut the corner and clipped what the lanes run alongside
+- The connector between two lanes was a quadratic curve with a single control point, placed along
+  the heading it leaves on. That aligns the departure but not the arrival, so the curve swings
+  across the corner rather than following the road: on a real warehouse it came within 0.66 m of
+  the racking the lanes run beside.
+- It is now a cubic curve with a control point on each heading, so a turn leaves along its own lane
+  and arrives along the one it joins, staying in the corridor between them.
+- The self-test asserts the connector's first segment is aligned with the lane it came from.
+
 ## [1.6.1]
 
 ### Fixed — trimming to a no-traffic area threw away half the corridor

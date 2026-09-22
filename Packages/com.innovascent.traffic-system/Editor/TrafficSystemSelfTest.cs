@@ -96,6 +96,22 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             if (branched)
             {
+                // The connector has to leave along the lane it comes from and arrive along the one
+                // it joins. A curve aligned only at its start swings wide and clips whatever the
+                // lanes run alongside, which on a real site is the racking.
+                Transform connectorRoot = manager.transform.Find("Branches");
+                if (connectorRoot != null && connectorRoot.childCount > 0)
+                {
+                    Transform connector = connectorRoot.GetChild(0);
+                    if (connector.childCount >= 2)
+                    {
+                        Vector3 leaves = (connector.GetChild(1).position - connector.GetChild(0).position).normalized;
+                        float alignment = Vector3.Dot(split.forward, leaves);
+                        Check("the turn leaves along the lane it came from", alignment > 0.7f,
+                            "dot=" + alignment.ToString("F2"));
+                    }
+                }
+
                 WaypointDecision.Branch[] exits = TrafficBranchTool.BranchesOn(split);
                 Check("the split offers carrying on and the exit", exits.Length == 2,
                     "exits=" + exits.Length);

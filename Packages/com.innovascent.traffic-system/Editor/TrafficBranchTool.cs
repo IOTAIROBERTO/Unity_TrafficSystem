@@ -28,6 +28,13 @@ namespace InnovAscent.TrafficSystem.EditorTools
         /// <summary>Roughly how far apart the connector's waypoints are, in metres.</summary>
         const float ConnectorSpacing = 6f;
 
+        /// <summary>
+        /// How far along each heading the curve's control points sit, as a fraction of the gap.
+        /// Higher keeps the turn in its lane for longer before swinging across, which is what stops
+        /// it clipping the racks and markings the lanes run alongside.
+        /// </summary>
+        const float TangentPull = 0.55f;
+
         // ============================== API ==============================
 
         /// <summary>
@@ -128,9 +135,11 @@ namespace InnovAscent.TrafficSystem.EditorTools
             float span = Vector3.Distance(start, end);
             if (span < 0.5f) return null;
 
-            // Meeting point of the two headings, which is what makes the curve leave along the
-            // source lane and arrive along the target one.
-            Vector3 control = start + from.forward * (span * 0.5f);
+            // Two control points, one along the heading it leaves on and one along the heading it
+            // arrives on. A single control only aligns the departure, so the curve cuts the corner
+            // and clips whatever the lanes are running alongside.
+            Vector3 control1 = start + from.forward * (span * TangentPull);
+            Vector3 control2 = end - to.forward * (span * TangentPull);
 
             Transform branchesRoot = FindOrCreate(manager.transform, "Branches");
             var root = new GameObject($"Branch_{sourceLaneId}_to_{targetLaneId}");
@@ -144,7 +153,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
             for (int i = 1; i < steps; i++)
             {
                 float t = (float)i / steps;
-                Vector3 point = Bezier(start, control, end, t);
+                Vector3 point = Bezier(start, control1, control2, end, t);
                 waypoints.Add(TrafficLaneDesigner.CreateWaypoint(root.transform, point, targetLaneId));
             }
 
@@ -160,10 +169,14 @@ namespace InnovAscent.TrafficSystem.EditorTools
             return root.transform;
         }
 
-        static Vector3 Bezier(Vector3 a, Vector3 control, Vector3 b, float t)
+        /// <summary>Cubic curve: leaves along the source heading and arrives along the target one.</summary>
+        static Vector3 Bezier(Vector3 a, Vector3 c1, Vector3 c2, Vector3 b, float t)
         {
             float inv = 1f - t;
-            return inv * inv * a + 2f * inv * t * control + t * t * b;
+            return inv * inv * inv * a
+                 + 3f * inv * inv * t * c1
+                 + 3f * inv * t * t * c2
+                 + t * t * t * b;
         }
 
         /// <summary>The last connector waypoint has no successor of its own, so point it at the join.</summary>
