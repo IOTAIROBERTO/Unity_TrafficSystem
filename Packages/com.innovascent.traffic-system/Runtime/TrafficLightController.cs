@@ -47,7 +47,8 @@ namespace InnovAscent.TrafficSystem
         {
             // Estado inicial
             estadoActual = empezarEnVerde ? EstadoSemaforo.Verde : EstadoSemaforo.Rojo;
-            timer = Mathf.Max(0f, desfaseInicial);
+            timer = 0f;
+            if (desfaseInicial > 0f) AplicarDesfase(desfaseInicial);
 
             // Registrar con el TrafficManager
             if (TrafficManager.Instance != null && waypointControlado != null)
@@ -61,6 +62,64 @@ namespace InnovAscent.TrafficSystem
             }
 
             ActualizarVisuales();
+        }
+
+        /// <summary>
+        /// Places the light this many seconds into the red-green-amber cycle. The offset has to be
+        /// resolved into a phase and a time within it: feeding it straight to the timer only works
+        /// while it is shorter than the phase the light happens to start in, and any larger value
+        /// ends that phase on the first frame, which drops every light back onto the same schedule.
+        /// </summary>
+        void AplicarDesfase(float segundos)
+        {
+            float rojo = 8f, verde = 10f;
+
+            if (TrafficManager.Instance != null && TrafficManager.Instance.config != null)
+            {
+                rojo = TrafficManager.Instance.config.tiempoRojoSemaforo;
+                verde = TrafficManager.Instance.config.tiempoVerdeSemaforo;
+            }
+
+            float dentroDeLaFase;
+            Estado fase = FaseEnElCiclo(segundos, rojo, verde, out dentroDeLaFase);
+
+            estadoActual = fase == Estado.Verde ? EstadoSemaforo.Verde
+                         : fase == Estado.Amarillo ? EstadoSemaforo.Amarillo
+                         : EstadoSemaforo.Rojo;
+            timer = dentroDeLaFase;
+        }
+
+        /// <summary>
+        /// Which phase a light sits in this many seconds into the cycle, and how far into that
+        /// phase it is. Kept separate from the component so the mapping can be checked on its own.
+        /// </summary>
+        public static Estado FaseEnElCiclo(float segundos, float rojo, float verde, out float dentroDeLaFase)
+        {
+            const float ambar = 2f;
+            float ciclo = rojo + verde + ambar;
+
+            if (ciclo <= 0f)
+            {
+                dentroDeLaFase = 0f;
+                return Estado.Rojo;
+            }
+
+            float t = Mathf.Repeat(segundos, ciclo);
+
+            if (t < rojo)
+            {
+                dentroDeLaFase = t;
+                return Estado.Rojo;
+            }
+
+            if (t < rojo + verde)
+            {
+                dentroDeLaFase = t - rojo;
+                return Estado.Verde;
+            }
+
+            dentroDeLaFase = t - rojo - verde;
+            return Estado.Amarillo;
         }
 
         void Update()
