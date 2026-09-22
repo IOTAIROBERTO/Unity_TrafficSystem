@@ -169,7 +169,7 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
         static void Apply(TrafficManager manager, int lane, int index, bool yields, int priority, string otherLaneId)
         {
-            LaneDirection direction = DirectionAt(manager, lane, index);
+            LaneDirection direction = EnsureDirection(manager, lane, index);
             if (direction == null) return;
 
             Undo.RecordObject(direction, "Mark crossing");
@@ -232,6 +232,40 @@ namespace InnovAscent.TrafficSystem.EditorTools
         {
             Transform waypoint = WaypointAt(manager, lane, index);
             return waypoint != null ? waypoint.GetComponent<LaneDirection>() : null;
+        }
+
+        /// <summary>
+        /// The waypoint's LaneDirection, adding one if it has none. Lanes built outside the lane
+        /// designer often carry no LaneDirection at all, and without it there is nothing to write
+        /// the give-way rule onto — the crossing would be marked in the UI and do nothing at all.
+        /// </summary>
+        static LaneDirection EnsureDirection(TrafficManager manager, int lane, int index)
+        {
+            Transform waypoint = WaypointAt(manager, lane, index);
+            if (waypoint == null) return null;
+
+            var direction = waypoint.GetComponent<LaneDirection>();
+            if (direction != null) return direction;
+
+            direction = Undo.AddComponent<LaneDirection>(waypoint.gameObject);
+            direction.laneId = manager.lanes[lane].laneId;
+            direction.flowDirection = FlowAt(manager, lane, index);
+            return direction;
+        }
+
+        /// <summary>Heading along the lane at this waypoint, taken from the next one where there is one.</summary>
+        static Vector3 FlowAt(TrafficManager manager, int lane, int index)
+        {
+            Transform current = WaypointAt(manager, lane, index);
+            Transform next = WaypointAt(manager, lane, index + 1) ?? WaypointAt(manager, lane, index - 1);
+            if (current == null || next == null) return Vector3.forward;
+
+            Vector3 flow = WaypointAt(manager, lane, index + 1) != null
+                ? next.position - current.position
+                : current.position - next.position;
+
+            flow.y = 0f;
+            return flow.sqrMagnitude > 0.001f ? flow.normalized : Vector3.forward;
         }
 
         static void MarkDirty()
