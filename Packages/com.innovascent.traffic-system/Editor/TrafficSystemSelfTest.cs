@@ -72,6 +72,43 @@ namespace InnovAscent.TrafficSystem.EditorTools
             TrafficLaneDesigner.Finish();
             Check("Finish stops placement", !TrafficLaneDesigner.IsPlacing, "placing stopped");
 
+            // Branching: a second lane to aim at, then several exits off one waypoint.
+            TrafficLaneDesigner.BeginLane(manager, "self_test_side");
+            foreach (Vector3 p in new[] { new Vector3(30f, 0f, 20f), new Vector3(40f, 0f, 30f), new Vector3(50f, 0f, 40f) })
+            {
+                TrafficLaneDesigner.AddWaypoint(p);
+            }
+            TrafficLaneDesigner.Finish();
+
+            Transform split = manager.lanes[0].waypoints[1];
+            bool branched = TrafficBranchTool.Branch(manager, split, "self_test_side", 2f, out string branchError);
+            Check("branching a lane part-way along it", branched, branched ? "ok" : branchError);
+
+            if (branched)
+            {
+                WaypointDecision.Branch[] exits = TrafficBranchTool.BranchesOn(split);
+                Check("the split offers carrying on and the exit", exits.Length == 2,
+                    "exits=" + exits.Length);
+
+                var decision = split.GetComponent<WaypointDecision>();
+                var taken = new Dictionary<string, int>();
+                for (int i = 0; i < 600; i++)
+                {
+                    Transform[] route = decision.GetRutaAleatoria("self_test", split.position);
+                    string id = route != null ? decision.GetNuevoLaneId(route) : "none";
+                    taken[id] = taken.TryGetValue(id, out int count) ? count + 1 : 1;
+                }
+
+                bool everyExitUsed = taken.Count == 2 && !taken.ContainsKey("none");
+                Check("every exit is reachable", everyExitUsed, Describe(taken));
+
+                int side = taken.TryGetValue("self_test_side", out int s) ? s : 0;
+                int straight = taken.TryGetValue("self_test", out int t) ? t : 0;
+                Check("weight 2 sends about twice as many down the exit", side > straight,
+                    "exit=" + side + " carry on=" + straight);
+            }
+
+            TrafficLaneDesigner.RemoveLane(manager, 1);
             TrafficLaneDesigner.RemoveLane(manager, 0);
             Check("RemoveLane drops the lane", manager.lanes.Length == 0,
                 "lanes=" + manager.lanes.Length);
@@ -88,5 +125,12 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
         /// <summary>Report from the last run, for scripted checks.</summary>
         public static string LastReport { get; private set; }
+
+        static string Describe(Dictionary<string, int> counts)
+        {
+            var parts = new List<string>(counts.Count);
+            foreach (KeyValuePair<string, int> pair in counts) parts.Add(pair.Key + "=" + pair.Value);
+            return string.Join(", ", parts);
+        }
     }
 }

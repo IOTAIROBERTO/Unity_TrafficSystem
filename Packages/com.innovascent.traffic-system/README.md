@@ -162,6 +162,35 @@ The splines support lives in its own assembly, gated on `com.unity.splines` bein
 package has no dependency on it: without the package that assembly is skipped and everything
 else compiles unchanged.
 
+## Branching a lane
+
+A lane can split part-way along it, and the split can have any number of exits. Select the
+waypoint the branch leaves from, pick the lane it should also be able to reach, set how much
+traffic takes it, and press **Branch**. Repeat on the same waypoint for a third and fourth exit.
+
+What it builds:
+- a curved connector from the split into the target lane, as its own run of waypoints under
+  `Branches`, so both lanes keep their own geometry and stay draggable
+- a `WaypointDecision` on the split carrying one exit per destination plus a **carry on** exit
+  along the original lane, so branching stays a choice rather than a diversion
+- relative weights: 1 against 1 is even odds, 2 against 1 sends about two thirds down the exit.
+  The Design tab prints the resulting share next to each exit, and the Scene view draws each exit
+  as an arrow labelled with its percentage, thicker the more traffic it takes
+
+**Splitting never causes a collision** — the vehicles simply fan out. The far end does, where the
+connector rejoins the target lane, so that join is marked automatically: the arriving traffic gets
+`requiresYield` with a low priority, and the lane being merged into keeps the right of way. That
+is what `Vehicle` reads to decide who waits.
+
+Two things worth knowing:
+
+- **Spawning from both ends of one lane does not work, by design.** The waypoints of a lane run
+  one way; spawning at both ends puts traffic head-on in the same file. A corridor that feeds from
+  both sides is two lanes, one per direction, each with its own spawn point. `LaneDirection`
+  already has `OpposingLane` so the detection ignores whatever comes the other way.
+- Decisions authored before branches existed keep working untouched. Their three legacy routes are
+  folded into exits at load, so nothing has to be re-saved.
+
 ## Manual setup
 
 1. Create a physics layer for vehicles (`Edit > Project Settings > Tags and Layers`).

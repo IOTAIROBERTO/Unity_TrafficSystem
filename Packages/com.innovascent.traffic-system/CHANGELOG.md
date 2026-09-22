@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.3.0]
+
+### Added — a lane can split into any number of exits
+- `WaypointDecision` gained `Branch[]`: one entry per exit, each with its own lane id, waypoints
+  and relative weight. A waypoint can now offer three, four or more ways out instead of the fixed
+  straight/right/left. Weights are relative, so 2 against 1 is twice as likely.
+- **Branch** in the Design tab: select the waypoint the branch leaves from, pick the lane it
+  should reach, set the weight. It builds a curved connector under `Branches`, adds the exit, and
+  keeps a carry-on exit along the original lane so branching stays a choice. Repeat on the same
+  waypoint to stack more exits.
+- The far end of a branch is marked automatically: the arriving traffic gets `requiresYield` and a
+  low priority, the lane being merged into keeps the right of way. A split cannot collide on its
+  own; the merge can, and that is the part that needed the rule.
+- The Scene view draws every exit as an arrow labelled with its share of traffic, thicker the more
+  it takes, so the route tree is readable without opening an inspector.
+- Decisions authored against the old three-route fields keep working: those are folded into exits
+  at load, in memory, so no scene has to be re-saved.
+
 ## [1.2.0]
 
 ### Changed — the demo assets ship outside the package

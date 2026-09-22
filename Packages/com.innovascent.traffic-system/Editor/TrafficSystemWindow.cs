@@ -113,6 +113,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             DrawLaneList();
             EditorGUILayout.Space(10f);
+            DrawBranchTool();
+            EditorGUILayout.Space(10f);
             DrawJunctionTool();
             EditorGUILayout.Space(10f);
             DrawTrafficLightTool();
@@ -161,6 +163,93 @@ namespace InnovAscent.TrafficSystem.EditorTools
                     }
                 }
             }
+        }
+
+        string branchTargetLaneId = "";
+        float branchWeight = 1f;
+
+        /// <summary>
+        /// Splitting a lane part-way along it. Repeating this on one waypoint stacks exits, which
+        /// is how a lane fans out into three, four or more.
+        /// </summary>
+        void DrawBranchTool()
+        {
+            EditorGUILayout.LabelField("Branch", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Select the waypoint the branch leaves from, pick where it goes, and traffic reaching it " +
+                "chooses between carrying on and taking the exit. Repeat on the same waypoint for more exits.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            Transform selected = Selection.activeTransform;
+            bool isWaypoint = selected != null && selected.GetComponent<LaneDirection>() != null;
+
+            if (!isWaypoint)
+            {
+                EditorGUILayout.HelpBox("Select a waypoint in the scene.", MessageType.None);
+                return;
+            }
+
+            string[] laneIds = LaneIds();
+            if (laneIds.Length < 2)
+            {
+                EditorGUILayout.HelpBox("Branching needs at least two lanes.", MessageType.None);
+                return;
+            }
+
+            int current = Mathf.Max(0, System.Array.IndexOf(laneIds, branchTargetLaneId));
+            current = EditorGUILayout.Popup("Goes to", current, laneIds);
+            branchTargetLaneId = laneIds[current];
+
+            branchWeight = EditorGUILayout.Slider("Take the exit", branchWeight, 0.1f, 5f);
+            EditorGUILayout.LabelField(
+                $"Weight {branchWeight:0.0} against 1.0 for carrying on — about {branchWeight / (1f + branchWeight):P0} of traffic takes it.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            if (GUILayout.Button($"Branch '{selected.name}' to '{branchTargetLaneId}'", GUILayout.Height(24f)))
+            {
+                if (TrafficBranchTool.Branch(manager, selected, branchTargetLaneId, branchWeight, out string error))
+                {
+                    SceneView.RepaintAll();
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("Traffic System", error, "OK");
+                }
+            }
+
+            WaypointDecision.Branch[] existing = TrafficBranchTool.BranchesOn(selected);
+            if (existing.Length == 0) return;
+
+            float total = 0f;
+            foreach (WaypointDecision.Branch b in existing) total += Mathf.Max(0f, b.weight);
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField($"Exits from '{selected.name}' ({existing.Length})", EditorStyles.miniBoldLabel);
+            foreach (WaypointDecision.Branch b in existing)
+            {
+                float share = total > 0f ? Mathf.Max(0f, b.weight) / total : 0f;
+                EditorGUILayout.LabelField(
+                    $"    → {b.laneId}   {share:P0}   ({b.waypoints.Length} wp)", EditorStyles.miniLabel);
+            }
+
+            if (GUILayout.Button("Remove every exit from this waypoint"))
+            {
+                TrafficBranchTool.ClearBranches(selected);
+                SceneView.RepaintAll();
+            }
+        }
+
+        string[] LaneIds()
+        {
+            if (manager.lanes == null) return new string[0];
+
+            var ids = new List<string>(manager.lanes.Length);
+            foreach (LaneConfig lane in manager.lanes)
+            {
+                if (!string.IsNullOrEmpty(lane.laneId)) ids.Add(lane.laneId);
+            }
+
+            return ids.ToArray();
         }
 
         void DrawJunctionTool()
