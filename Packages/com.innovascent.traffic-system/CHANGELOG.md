@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1]
+
+### Fixed — removing one half of a split lane destroyed the other
+- When a lane is cut by a no-traffic area the two pieces were left sharing the original root
+  GameObject. They look independent in the manager, but removing one destroys the other's
+  waypoints with it, which shows up later as null references across the scene. Each piece now gets
+  its own root.
+
 ## [1.7.0]
 
 ### Added — open out the corners of a lane
