@@ -288,9 +288,10 @@ namespace InnovAscent.TrafficSystem.EditorTools
         }
 
         /// <summary>
-        /// Cuts every lane back so none runs through an exclusion zone. A lane that crosses one is
-        /// kept as its longest run of waypoints outside, and the waypoints inside are destroyed; a
-        /// lane left with fewer than two is removed entirely.
+        /// Takes every lane out of the exclusion zones without throwing away the road either side.
+        /// A lane that crosses a zone is split into a piece before it and a piece after, each kept
+        /// as its own lane, so traffic can still be routed around through the turns at the corners.
+        /// Truncating to the longest surviving piece instead would quietly delete half a corridor.
         /// </summary>
         /// <returns>How many lanes were changed.</returns>
         public static int TrimLanesOutsideZones(TrafficManager manager, out int waypointsRemoved, out int lanesDropped)
@@ -306,52 +307,79 @@ namespace InnovAscent.TrafficSystem.EditorTools
             {
                 if (lane.waypoints == null || lane.waypoints.Length == 0) { keep.Add(lane); continue; }
 
-                // Longest stretch that stays outside. Keeping the longest run rather than the first
-                // means a lane clipped near one end survives as the useful part of itself.
-                int bestStart = -1, bestLength = 0, runStart = -1, runLength = 0;
-                for (int i = 0; i < lane.waypoints.Length; i++)
+                // Every stretch that stays outside, in order along the lane.
+                var runs = new List<List<Transform>>();
+                var current = new List<Transform>();
+
+                foreach (Transform waypoint in lane.waypoints)
                 {
-                    bool inside = lane.waypoints[i] == null ||
-                                  TrafficExclusionZone.IsExcluded(lane.waypoints[i].position);
+                    bool inside = waypoint == null || TrafficExclusionZone.IsExcluded(waypoint.position);
 
-                    if (inside) { runStart = -1; runLength = 0; continue; }
+                    if (!inside) { current.Add(waypoint); continue; }
 
-                    if (runStart < 0) runStart = i;
-                    runLength++;
-                    if (runLength <= bestLength) continue;
+                    if (waypoint != null)
+                    {
+                        Undo.DestroyObjectImmediate(waypoint.gameObject);
+                        waypointsRemoved++;
+                    }
 
-                    bestLength = runLength;
-                    bestStart = runStart;
+                    if (current.Count > 0) { runs.Add(current); current = new List<Transform>(); }
                 }
 
-                if (bestLength == lane.waypoints.Length) { keep.Add(lane); continue; }
+                if (current.Count > 0) runs.Add(current);
+
+                if (runs.Count == 1 && runs[0].Count == lane.waypoints.Length) { keep.Add(lane); continue; }
 
                 changed++;
 
-                for (int i = 0; i < lane.waypoints.Length; i++)
+                for (int i = 0; i < runs.Count; i++)
                 {
-                    if (i >= bestStart && i < bestStart + bestLength) continue;
-                    if (lane.waypoints[i] == null) continue;
+                    if (runs[i].Count < 2) { lanesDropped++; continue; }
 
-                    Undo.DestroyObjectImmediate(lane.waypoints[i].gameObject);
-                    waypointsRemoved++;
+                    LaneConfig piece = i == 0 ? lane : Clone(lane);
+                    // A split lane needs its own id, or two lanes answer to the same name and a
+                    // decision aiming at one can be sent down the other.
+                    if (i > 0) piece.laneId = lane.laneId + "_" + (i + 1);
+
+                    piece.waypoints = runs[i].ToArray();
+                    piece.spawnPoint = piece.waypoints[0];
+                    piece.destroyPoints = new[] { piece.waypoints[piece.waypoints.Length - 1] };
+                    RelabelWaypoints(piece);
+                    keep.Add(piece);
                 }
-
-                if (bestLength < 2) { lanesDropped++; continue; }
-
-                var kept = new Transform[bestLength];
-                for (int i = 0; i < bestLength; i++) kept[i] = lane.waypoints[bestStart + i];
-
-                lane.waypoints = kept;
-                lane.spawnPoint = kept[0];
-                lane.destroyPoints = new[] { kept[bestLength - 1] };
-                keep.Add(lane);
             }
 
             Undo.RecordObject(manager, "Trim lanes to exclusion zones");
             manager.lanes = keep.ToArray();
             MarkDirty();
             return changed;
+        }
+
+        static LaneConfig Clone(LaneConfig source)
+        {
+            return new LaneConfig
+            {
+                laneId = source.laneId,
+                activo = source.activo,
+                destroyRadius = source.destroyRadius,
+                cadenciaSpawn = source.cadenciaSpawn,
+                variacionCadencia = source.variacionCadencia,
+                radioSeguridadSpawn = source.radioSeguridadSpawn,
+                velocidadMaxima = source.velocidadMaxima,
+            };
+        }
+
+        /// <summary>Keeps LaneDirection agreeing with the lane it now belongs to after a split.</summary>
+        static void RelabelWaypoints(LaneConfig lane)
+        {
+            foreach (Transform waypoint in lane.waypoints)
+            {
+                var direction = waypoint.GetComponent<LaneDirection>();
+                if (direction == null) continue;
+
+                Undo.RecordObject(direction, "Split lane");
+                direction.laneId = lane.laneId;
+            }
         }
 
         // ============================== HELPERS ==============================

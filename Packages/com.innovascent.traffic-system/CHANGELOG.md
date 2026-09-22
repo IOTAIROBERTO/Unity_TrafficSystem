@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.1]
+
+### Fixed — trimming to a no-traffic area threw away half the corridor
+- Trimming kept only a lane's longest stretch outside the area and deleted the rest. On a real
+  layout, clearing 19 waypoints out of two areas destroyed 69: a corridor crossing an area lost
+  everything on the far side, which is the opposite of keeping the road and routing around.
+- A lane crossing an area is now split into a piece before it and a piece after, each kept as its
+  own lane, the later ones taking a numbered id so two lanes never answer to the same name. Only
+  a piece left with fewer than two waypoints is dropped.
+- The self-test asserts that the number of waypoints removed equals the number that were inside,
+  and that a lane cut in two is still in the manager.
+
 ## [1.6.0]
 
 ### Added — areas no route may enter

@@ -79,8 +79,10 @@ namespace InnovAscent.TrafficSystem.EditorTools
             foreach (Vector3 p in new[]
             {
                 new Vector3(-20f, 0f, 15f),
+                new Vector3(-17f, 0f, 15f),
                 new Vector3(-10f, 0f, 15f),
                 new Vector3(10f, 0f, 15f),
+                new Vector3(17f, 0f, 15f),
                 new Vector3(20f, 0f, 15f),
             })
             {
@@ -208,6 +210,20 @@ namespace InnovAscent.TrafficSystem.EditorTools
             Check("trimming clears every waypoint out of the area",
                 insideBefore > 0 && insideAfter == 0,
                 "inside before=" + insideBefore + " after=" + insideAfter + " removed=" + removedWaypoints);
+
+            // The road either side of an area has to survive. Truncating to the longest surviving
+            // piece would quietly delete half a corridor, which is the opposite of keeping
+            // everything outside the area and routing around it.
+            Check("a lane cut in two keeps both pieces",
+                removedWaypoints == insideBefore,
+                "removed=" + removedWaypoints + " but only " + insideBefore + " were inside");
+
+            bool splitKept = false;
+            foreach (LaneConfig config in manager.lanes)
+            {
+                if (config.laneId.StartsWith("self_test_side")) splitKept = true;
+            }
+            Check("the split lane is still in the manager", splitKept, "found a self_test_side piece");
 
             foreach (TrafficCrossingTool.Crossing c in TrafficCrossingTool.Find(manager))
             {
