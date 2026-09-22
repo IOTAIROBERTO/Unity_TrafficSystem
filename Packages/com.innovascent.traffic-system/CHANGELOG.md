@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.0]
+
+### Fixed — the give-way priority was written upside down
+- `TrafficBranchTool` marked the lane being merged into with priority 8 and the arriving branch
+  with 2. `Vehicle` compares priorities with `other.priority <= mine`, so a **lower** number is the
+  stronger claim: the branch outranked the lane it was merging into, `requiresYield` was set but
+  never fired, and nothing ever stopped. The tools now write 3 for the right of way and 7 for the
+  lane that yields, matching the scale the sample builder already used.
+- The self-test asserts the direction of the comparison, so an inverted constant fails a check
+  instead of silently producing a merge where nobody gives way.
+
+### Added — crossings between lanes drawn by hand
+- **Crossings** in the Design tab: finds every place two lanes meet by intersecting their segments
+  on the ground plane, clustering hits within 4 m so lanes running alongside each other report one
+  crossing rather than a dozen.
+- Per crossing, either lane can be given the right of way, or a turn can be added in either
+  direction, built with the same connector as **Branch**.
+- **Give way at every crossing** marks the lot, taking the longer lane as the main one.
+- The Scene view draws each crossing: red where nobody gives way, green where the rule is set.
+
 ## [1.3.0]
 
 ### Added — a lane can split into any number of exits

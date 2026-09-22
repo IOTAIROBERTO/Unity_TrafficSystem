@@ -1,0 +1,244 @@
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
+
+namespace InnovAscent.TrafficSystem.EditorTools
+{
+    /// <summary>
+    /// Finds every place two lanes cross and wires what happens there. Lanes drawn by hand meet at
+    /// points nobody recorded: the traffic runs straight through them, so two vehicles arriving at
+    /// the same metre of floor have nothing telling them who waits.
+    ///
+    /// Two things can be done at a crossing, and they are different jobs:
+    /// give way, which decides who stops, and a turn, which lets traffic change lane there.
+    /// </summary>
+    public static class TrafficCrossingTool
+    {
+        // Vehicle compares priorities with "other.priority <= mine", so a LOWER number is the
+        // stronger claim, matching the scale the sample builder already uses.
+        const int MainPriority = 3;
+        const int GiveWayPriority = 7;
+
+        /// <summary>Crossings closer together than this are treated as one.</summary>
+        const float ClusterSize = 4f;
+
+        /// <summary>Where two lanes meet, and the waypoint on each that arrives there.</summary>
+        public struct Crossing
+        {
+            public int laneA;
+            public int laneB;
+
+            /// <summary>Waypoint on lane A immediately before the crossing.</summary>
+            public int indexA;
+
+            /// <summary>Waypoint on lane B immediately before the crossing.</summary>
+            public int indexB;
+
+            public Vector3 point;
+        }
+
+        // ============================== FINDING ==============================
+
+        /// <summary>
+        /// Every crossing between two different lanes, one entry per place rather than one per
+        /// pair of segments: lanes that run alongside each other for a while otherwise report the
+        /// same corner a dozen times.
+        /// </summary>
+        public static List<Crossing> Find(TrafficManager manager)
+        {
+            var found = new List<Crossing>();
+            if (manager == null || manager.lanes == null) return found;
+
+            var seen = new HashSet<string>();
+
+            for (int a = 0; a < manager.lanes.Length; a++)
+            {
+                for (int b = a + 1; b < manager.lanes.Length; b++)
+                {
+                    Transform[] wa = manager.lanes[a].waypoints;
+                    Transform[] wb = manager.lanes[b].waypoints;
+                    if (wa == null || wb == null) continue;
+
+                    for (int i = 1; i < wa.Length; i++)
+                    {
+                        if (wa[i - 1] == null || wa[i] == null) continue;
+
+                        Vector2 a1 = Flat(wa[i - 1].position);
+                        Vector2 a2 = Flat(wa[i].position);
+
+                        for (int j = 1; j < wb.Length; j++)
+                        {
+                            if (wb[j - 1] == null || wb[j] == null) continue;
+
+                            Vector2 b1 = Flat(wb[j - 1].position);
+                            Vector2 b2 = Flat(wb[j].position);
+
+                            if (!SegmentsCross(a1, a2, b1, b2, out Vector2 hit)) continue;
+
+                            string key = a + "|" + b + "|" +
+                                         Mathf.RoundToInt(hit.x / ClusterSize) + "|" +
+                                         Mathf.RoundToInt(hit.y / ClusterSize);
+                            if (!seen.Add(key)) continue;
+
+                            found.Add(new Crossing
+                            {
+                                laneA = a,
+                                laneB = b,
+                                indexA = i - 1,
+                                indexB = j - 1,
+                                point = new Vector3(hit.x, wa[i - 1].position.y, hit.y),
+                            });
+                        }
+                    }
+                }
+            }
+
+            return found;
+        }
+
+        static Vector2 Flat(Vector3 v) => new Vector2(v.x, v.z);
+
+        static bool SegmentsCross(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, out Vector2 hit)
+        {
+            hit = Vector2.zero;
+
+            float denominator = (p2.x - p1.x) * (p4.y - p3.y) - (p2.y - p1.y) * (p4.x - p3.x);
+            if (Mathf.Abs(denominator) < 1e-6f) return false; // parallel
+
+            float t = ((p3.x - p1.x) * (p4.y - p3.y) - (p3.y - p1.y) * (p4.x - p3.x)) / denominator;
+            float u = ((p3.x - p1.x) * (p2.y - p1.y) - (p3.y - p1.y) * (p2.x - p1.x)) / denominator;
+            if (t < 0f || t > 1f || u < 0f || u > 1f) return false;
+
+            hit = p1 + (p2 - p1) * t;
+            return true;
+        }
+
+        // ============================== STATE ==============================
+
+        /// <summary>True once both sides of the crossing know they are in one.</summary>
+        public static bool IsMarked(TrafficManager manager, Crossing crossing)
+        {
+            LaneDirection a = DirectionAt(manager, crossing.laneA, crossing.indexA);
+            LaneDirection b = DirectionAt(manager, crossing.laneB, crossing.indexB);
+
+            return a != null && b != null &&
+                   a.zoneType == LaneDirection.ZoneType.Intersection &&
+                   b.zoneType == LaneDirection.ZoneType.Intersection;
+        }
+
+        /// <summary>True when traffic can already change lane here.</summary>
+        public static bool HasTurn(TrafficManager manager, Crossing crossing)
+        {
+            return TurnExists(manager, crossing.laneA, crossing.indexA, manager.lanes[crossing.laneB].laneId)
+                || TurnExists(manager, crossing.laneB, crossing.indexB, manager.lanes[crossing.laneA].laneId);
+        }
+
+        static bool TurnExists(TrafficManager manager, int lane, int index, string targetLaneId)
+        {
+            Transform waypoint = WaypointAt(manager, lane, index);
+            if (waypoint == null) return false;
+
+            var decision = waypoint.GetComponent<WaypointDecision>();
+            if (decision == null) return false;
+
+            foreach (WaypointDecision.Branch branch in decision.ResolvedBranches)
+            {
+                if (branch.laneId == targetLaneId) return true;
+            }
+
+            return false;
+        }
+
+        // ============================== GIVE WAY ==============================
+
+        /// <summary>
+        /// Decides who stops. The main lane keeps the right of way and the other one yields, which
+        /// is what <see cref="Vehicle"/> reads when it finds itself inside an intersection.
+        /// </summary>
+        public static void MarkGiveWay(TrafficManager manager, Crossing crossing, bool laneAIsMain)
+        {
+            int mainLane = laneAIsMain ? crossing.laneA : crossing.laneB;
+            int mainIndex = laneAIsMain ? crossing.indexA : crossing.indexB;
+            int sideLane = laneAIsMain ? crossing.laneB : crossing.laneA;
+            int sideIndex = laneAIsMain ? crossing.indexB : crossing.indexA;
+
+            Apply(manager, mainLane, mainIndex, false, MainPriority, manager.lanes[sideLane].laneId);
+            Apply(manager, sideLane, sideIndex, true, GiveWayPriority, manager.lanes[mainLane].laneId);
+            MarkDirty();
+        }
+
+        static void Apply(TrafficManager manager, int lane, int index, bool yields, int priority, string otherLaneId)
+        {
+            LaneDirection direction = DirectionAt(manager, lane, index);
+            if (direction == null) return;
+
+            Undo.RecordObject(direction, "Mark crossing");
+            direction.zoneType = LaneDirection.ZoneType.Intersection;
+            direction.requiresYield = yields;
+            direction.priority = priority;
+            direction.compatibleLaneIds = new[] { otherLaneId };
+            EditorUtility.SetDirty(direction);
+        }
+
+        /// <summary>
+        /// Marks every crossing, treating the lane with more waypoints as the main one. That is a
+        /// guess — a long ring road usually is the through route — so it is a starting point to
+        /// correct per crossing, not an answer.
+        /// </summary>
+        public static int MarkAll(TrafficManager manager)
+        {
+            List<Crossing> crossings = Find(manager);
+
+            foreach (Crossing crossing in crossings)
+            {
+                int lengthA = manager.lanes[crossing.laneA].waypoints.Length;
+                int lengthB = manager.lanes[crossing.laneB].waypoints.Length;
+                MarkGiveWay(manager, crossing, lengthA >= lengthB);
+            }
+
+            return crossings.Count;
+        }
+
+        // ============================== TURNS ==============================
+
+        /// <summary>Lets traffic on one lane change onto the other at this crossing.</summary>
+        public static bool AddTurn(TrafficManager manager, Crossing crossing, bool fromAtoB, float weight,
+                                   out string error)
+        {
+            int fromLane = fromAtoB ? crossing.laneA : crossing.laneB;
+            int fromIndex = fromAtoB ? crossing.indexA : crossing.indexB;
+            int toLane = fromAtoB ? crossing.laneB : crossing.laneA;
+
+            Transform source = WaypointAt(manager, fromLane, fromIndex);
+            if (source == null) { error = "The waypoint before the crossing is missing."; return false; }
+
+            return TrafficBranchTool.Branch(manager, source, manager.lanes[toLane].laneId, weight, out error);
+        }
+
+        // ============================== HELPERS ==============================
+
+        public static Transform WaypointAt(TrafficManager manager, int lane, int index)
+        {
+            if (manager == null || manager.lanes == null) return null;
+            if (lane < 0 || lane >= manager.lanes.Length) return null;
+
+            Transform[] waypoints = manager.lanes[lane].waypoints;
+            if (waypoints == null || index < 0 || index >= waypoints.Length) return null;
+
+            return waypoints[index];
+        }
+
+        static LaneDirection DirectionAt(TrafficManager manager, int lane, int index)
+        {
+            Transform waypoint = WaypointAt(manager, lane, index);
+            return waypoint != null ? waypoint.GetComponent<LaneDirection>() : null;
+        }
+
+        static void MarkDirty()
+        {
+            if (Application.isPlaying) return;
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        }
+    }
+}

@@ -58,6 +58,34 @@ namespace InnovAscent.TrafficSystem.EditorTools
 
             DrawTrafficLights();
             DrawBranches();
+            DrawCrossings(manager);
+        }
+
+        // ============================== CROSSINGS ==============================
+
+        /// <summary>Set by the window: draws every place two lanes meet, and whether anyone yields.</summary>
+        public static bool ShowCrossings { get; set; }
+
+        /// <summary>
+        /// Red where two lanes cross with nobody giving way, green where the rule is set. A crossing
+        /// nothing has been said about is the one that produces two vehicles on the same metre.
+        /// </summary>
+        static void DrawCrossings(TrafficManager manager)
+        {
+            if (!ShowCrossings) return;
+
+            foreach (TrafficCrossingTool.Crossing crossing in TrafficCrossingTool.Find(manager))
+            {
+                bool marked = TrafficCrossingTool.IsMarked(manager, crossing);
+                float size = HandleUtility.GetHandleSize(crossing.point);
+
+                Handles.color = marked
+                    ? new Color(0.3f, 0.95f, 0.4f, 0.9f)
+                    : new Color(1f, 0.25f, 0.2f, 0.9f);
+
+                Handles.DrawWireDisc(crossing.point, Vector3.up, size * 0.5f, 3f);
+                if (!marked) Handles.DrawWireDisc(crossing.point, Vector3.up, size * 0.35f, 2f);
+            }
         }
 
         // ============================== BRANCHES ==============================

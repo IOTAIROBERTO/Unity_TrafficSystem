@@ -115,6 +115,8 @@ namespace InnovAscent.TrafficSystem.EditorTools
             EditorGUILayout.Space(10f);
             DrawBranchTool();
             EditorGUILayout.Space(10f);
+            DrawCrossingTool();
+            EditorGUILayout.Space(10f);
             DrawJunctionTool();
             EditorGUILayout.Space(10f);
             DrawTrafficLightTool();
@@ -250,6 +252,134 @@ namespace InnovAscent.TrafficSystem.EditorTools
             }
 
             return ids.ToArray();
+        }
+
+        List<TrafficCrossingTool.Crossing> crossings;
+        Vector2 crossingScroll;
+        float crossingTurnWeight = 1f;
+
+        /// <summary>
+        /// Lanes drawn by hand cross each other at points nobody recorded. This lists them and
+        /// wires each one: who gives way, and whether traffic can turn there.
+        /// </summary>
+        void DrawCrossingTool()
+        {
+            EditorGUILayout.LabelField("Crossings", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "Finds every place two lanes meet. Give way decides who stops; a turn lets traffic change lane there.",
+                EditorStyles.wordWrappedMiniLabel);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Scan", GUILayout.Width(80f)))
+                {
+                    crossings = TrafficCrossingTool.Find(manager);
+                    TrafficSceneEditor.ShowCrossings = true;
+                    SceneView.RepaintAll();
+                }
+
+                bool show = GUILayout.Toggle(TrafficSceneEditor.ShowCrossings, "Show in scene",
+                    EditorStyles.miniButton, GUILayout.Width(100f));
+                if (show != TrafficSceneEditor.ShowCrossings)
+                {
+                    TrafficSceneEditor.ShowCrossings = show;
+                    SceneView.RepaintAll();
+                }
+
+                using (new EditorGUI.DisabledScope(crossings == null || crossings.Count == 0))
+                {
+                    if (GUILayout.Button("Give way at every crossing"))
+                    {
+                        int marked = TrafficCrossingTool.MarkAll(manager);
+                        crossings = TrafficCrossingTool.Find(manager);
+                        SceneView.RepaintAll();
+                        Debug.Log($"[Traffic System] Marked {marked} crossing(s). The longer lane was taken as the main one — correct any that should be the other way round.");
+                    }
+                }
+            }
+
+            if (crossings == null)
+            {
+                EditorGUILayout.HelpBox("Press Scan to list the crossings in this scene.", MessageType.None);
+                return;
+            }
+
+            if (crossings.Count == 0)
+            {
+                EditorGUILayout.HelpBox("No two lanes cross in this scene.", MessageType.Info);
+                return;
+            }
+
+            int unmarked = 0;
+            foreach (TrafficCrossingTool.Crossing c in crossings)
+            {
+                if (!TrafficCrossingTool.IsMarked(manager, c)) unmarked++;
+            }
+
+            EditorGUILayout.LabelField($"{crossings.Count} crossing(s), {unmarked} with nobody giving way",
+                EditorStyles.miniBoldLabel);
+
+            crossingTurnWeight = EditorGUILayout.Slider("Turn weight", crossingTurnWeight, 0.1f, 5f);
+
+            crossingScroll = EditorGUILayout.BeginScrollView(crossingScroll, GUILayout.MaxHeight(260f));
+            for (int i = 0; i < crossings.Count; i++)
+            {
+                DrawCrossingRow(crossings[i], i);
+            }
+            EditorGUILayout.EndScrollView();
+        }
+
+        void DrawCrossingRow(TrafficCrossingTool.Crossing crossing, int index)
+        {
+            string idA = manager.lanes[crossing.laneA].laneId;
+            string idB = manager.lanes[crossing.laneB].laneId;
+            bool marked = TrafficCrossingTool.IsMarked(manager, crossing);
+            bool turns = TrafficCrossingTool.HasTurn(manager, crossing);
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    string state = marked ? (turns ? "give way + turn" : "give way") : "nothing set";
+                    EditorGUILayout.LabelField($"{idA}  ×  {idB}", EditorStyles.miniBoldLabel);
+                    EditorGUILayout.LabelField(state, EditorStyles.miniLabel, GUILayout.Width(110f));
+
+                    if (GUILayout.Button("Show", GUILayout.Width(50f)))
+                    {
+                        Transform w = TrafficCrossingTool.WaypointAt(manager, crossing.laneA, crossing.indexA);
+                        if (w != null)
+                        {
+                            Selection.activeGameObject = w.gameObject;
+                            SceneView.FrameLastActiveSceneView();
+                        }
+                    }
+                }
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button($"'{idA}' has priority")) TrafficCrossingTool.MarkGiveWay(manager, crossing, true);
+                    if (GUILayout.Button($"'{idB}' has priority")) TrafficCrossingTool.MarkGiveWay(manager, crossing, false);
+                }
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button($"Turn {idA} → {idB}")) AddCrossingTurn(crossing, true);
+                    if (GUILayout.Button($"Turn {idB} → {idA}")) AddCrossingTurn(crossing, false);
+                }
+            }
+        }
+
+        void AddCrossingTurn(TrafficCrossingTool.Crossing crossing, bool fromAtoB)
+        {
+            if (TrafficCrossingTool.AddTurn(manager, crossing, fromAtoB, crossingTurnWeight, out string error))
+            {
+                crossings = TrafficCrossingTool.Find(manager);
+                SceneView.RepaintAll();
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("Traffic System", error, "OK");
+            }
         }
 
         void DrawJunctionTool()
