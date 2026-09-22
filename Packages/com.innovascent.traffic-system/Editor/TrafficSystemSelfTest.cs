@@ -69,6 +69,59 @@ namespace InnovAscent.TrafficSystem.EditorTools
             Check("traffic light is built with its bulbs", light != null && renderers >= 4,
                 "renderers=" + renderers);
 
+            // Stop points that all take the component defaults change on the same frame, which
+            // halts every vehicle on a site at once and then releases them all at once.
+            TrafficLightController stopA = TrafficLaneDesigner.AddStopPoint(manager, lane.waypoints[1]);
+            TrafficLightController stopB = TrafficLaneDesigner.AddStopPoint(manager, lane.waypoints[3]);
+            float cycle = manager.config != null
+                ? manager.config.tiempoVerdeSemaforo + manager.config.tiempoRojoSemaforo + 2f
+                : 20f;
+            bool staggered = stopA != null && stopB != null
+                             && !Mathf.Approximately(stopA.desfaseInicial, stopB.desfaseInicial)
+                             && stopA.desfaseInicial >= 0f && stopA.desfaseInicial < cycle
+                             && stopB.desfaseInicial >= 0f && stopB.desfaseInicial < cycle;
+            Check("two stop points do not change on the same frame", staggered,
+                stopA != null && stopB != null
+                    ? "offsets " + stopA.desfaseInicial.ToString("F1") + "s and "
+                      + stopB.desfaseInicial.ToString("F1") + "s in a " + cycle.ToString("F0") + "s cycle"
+                    : "a stop point was not created");
+
+            // Different offsets are not enough on their own: an offset only spreads the lights out
+            // if it resolves to the phase it lands in. Walking the cycle has to visit red, green
+            // and amber, and has to come back round to where it started.
+            float red = 8f, green = 10f;
+            float dummy;
+            bool sawRed = false, sawGreen = false, sawAmber = false;
+
+            for (float t = 0f; t < red + green + 2f; t += 0.5f)
+            {
+                TrafficLightController.Estado phase =
+                    TrafficLightController.FaseEnElCiclo(t, red, green, out dummy);
+
+                if (phase == TrafficLightController.Estado.Rojo) sawRed = true;
+                if (phase == TrafficLightController.Estado.Verde) sawGreen = true;
+                if (phase == TrafficLightController.Estado.Amarillo) sawAmber = true;
+            }
+
+            float intoStart, intoWrap;
+            TrafficLightController.Estado atStart =
+                TrafficLightController.FaseEnElCiclo(0f, red, green, out intoStart);
+            TrafficLightController.Estado atWrap =
+                TrafficLightController.FaseEnElCiclo(red + green + 2f, red, green, out intoWrap);
+
+            Check("an offset lands in the phase it falls in",
+                sawRed && sawGreen && sawAmber && atStart == atWrap
+                && Mathf.Approximately(intoStart, intoWrap),
+                "cycle covers red=" + sawRed + " green=" + sawGreen + " amber=" + sawAmber
+                + ", wraps back to " + atWrap);
+
+            float intoLate;
+            TrafficLightController.Estado late =
+                TrafficLightController.FaseEnElCiclo(red + 3f, red, green, out intoLate);
+            Check("an offset past the red phase does not start the light on red",
+                late == TrafficLightController.Estado.Verde && Mathf.Approximately(intoLate, 3f),
+                "offset " + (red + 3f).ToString("F0") + "s -> " + late + " at " + intoLate.ToString("F1") + "s in");
+
             TrafficLaneDesigner.Finish();
             Check("Finish stops placement", !TrafficLaneDesigner.IsPlacing, "placing stopped");
 
