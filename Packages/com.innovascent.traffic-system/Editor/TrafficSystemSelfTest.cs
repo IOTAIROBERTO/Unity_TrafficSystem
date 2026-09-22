@@ -168,6 +168,22 @@ namespace InnovAscent.TrafficSystem.EditorTools
             Check("marking the scene leaves somebody yielding at every crossing", nobodyYields == 0,
                 "crossings=" + all.Count + " with nobody yielding=" + nobodyYields);
 
+            // Adding turns afterwards must not undo those rules: a turn marks the lane it merges
+            // into as having the right of way, which used to clear a yield set for a different
+            // crossing on the same waypoint.
+            TrafficCrossingTool.AddSensibleTurns(manager, 120f, 1f, out int _);
+
+            int afterTurns = 0;
+            foreach (TrafficCrossingTool.Crossing c in TrafficCrossingTool.Find(manager))
+            {
+                var dirA = TrafficCrossingTool.WaypointAt(manager, c.laneA, c.indexA).GetComponent<LaneDirection>();
+                var dirB = TrafficCrossingTool.WaypointAt(manager, c.laneB, c.indexB).GetComponent<LaneDirection>();
+                if (dirA != null && dirB != null && !dirA.requiresYield && !dirB.requiresYield) afterTurns++;
+            }
+
+            Check("adding turns does not undo the give-way rules", afterTurns == 0,
+                "crossings with nobody yielding after turns=" + afterTurns);
+
             TrafficLaneDesigner.RemoveLane(manager, 2);
             TrafficLaneDesigner.RemoveLane(manager, 1);
             TrafficLaneDesigner.RemoveLane(manager, 0);
